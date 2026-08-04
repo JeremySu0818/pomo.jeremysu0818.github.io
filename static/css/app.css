@@ -453,7 +453,7 @@ h2 {
 .mode-nav {
   position: relative;
   z-index: 1;
-  width: 100%;
+  width: min(100%, 340px);
   display: flex;
   gap: 0;
   padding: 7px;
@@ -479,8 +479,9 @@ h2 {
     inset 0 0 1.5px 1px var(--glass-inset),
     0 10px 24px var(--glass-shadow);
   pointer-events: none;
-  transform-origin: center;
+  transform-origin: left center;
   will-change: left, width, transform;
+  backface-visibility: hidden;
 }
 
 .mode-btn {
@@ -488,13 +489,13 @@ h2 {
   z-index: 1;
   flex: 1 1 0;
   min-width: 0;
-  min-height: 78px;
-  padding: 10px 8px 9px;
+  min-height: 62px;
+  padding: 7px 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 3px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -512,15 +513,15 @@ h2 {
 }
 
 .mode-btn svg {
-  width: 27px;
-  height: 27px;
+  width: 23px;
+  height: 23px;
   stroke-width: 1.7;
   transition: transform 420ms var(--ease-out), stroke-width 220ms ease;
 }
 
 .mode-btn.active svg { transform: translateY(-1px) scale(1.12); stroke-width: 2; }
 
-.mode-btn span { font-size: 13px; font-weight: 720; letter-spacing: 0.025em; }
+.mode-btn span { font-size: 12px; font-weight: 720; letter-spacing: 0.025em; }
 
 @media (prefers-reduced-motion: reduce) {
   .mode-slider,
@@ -604,9 +605,10 @@ h2 {
     inset 0 0 1px 0.5px var(--glass-inset),
     0 5px 14px var(--glass-shadow);
   pointer-events: none;
-  transform-origin: center;
+  transform-origin: left center;
   transition: opacity 160ms ease;
   will-change: left, width, transform;
+  backface-visibility: hidden;
 }
 
 .chip-btn {
@@ -792,7 +794,7 @@ h2 {
   .mode-section { padding: 26px 20px 28px; }
   .mode-scene { margin: 24px 0; }
   .mode-nav { gap: 0; }
-  .mode-btn { min-height: 76px; padding: 9px 8px; align-items: center; text-align: center; }
+  .mode-btn { min-height: 60px; padding: 7px 6px; align-items: center; text-align: center; }
   .mode-btn:hover { transform: none; }
   .preset-chips { gap: 4px; }
   .chip-btn { font-size: 10px; }

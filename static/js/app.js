@@ -10,6 +10,7 @@ const DEFAULTS = {
   mode: "work",
   durations: { work: 25, short: 5, long: 15 },
   completedCount: 0,
+  workSessionsSinceLongBreak: 0,
   totalFocusMinutes: 0
 };
 
@@ -102,6 +103,7 @@ function savePreferences() {
     mode: state.mode,
     durations: state.durations,
     completedCount: state.completedCount,
+    workSessionsSinceLongBreak: state.workSessionsSinceLongBreak,
     totalFocusMinutes: state.totalFocusMinutes
   };
 
@@ -169,12 +171,9 @@ let renderedMode = null;
 let renderedPresetTime = null;
 const pillSliderAnimations = new WeakMap();
 
-function positionPillSlider({ container, slider, target, animate, maxExtra, extraRatio, overshoot }) {
+function positionPillSlider({ container, slider, target, animate, maxExtra = 0, extraRatio = 0 }) {
   requestAnimationFrame(() => {
     if (!container || !slider) return;
-
-    const runningAnimation = pillSliderAnimations.get(slider);
-    if (runningAnimation) runningAnimation.cancel();
 
     if (!target) {
       slider.style.opacity = "0";
@@ -184,32 +183,47 @@ function positionPillSlider({ container, slider, target, animate, maxExtra, extr
     const navRect = container.getBoundingClientRect();
     const tabRect = target.getBoundingClientRect();
     const currentRect = slider.getBoundingClientRect();
+    const isVisible = getComputedStyle(slider).opacity !== "0" && currentRect.width > 0;
+
     const navPadding = Number.parseFloat(getComputedStyle(container).paddingLeft) || 0;
     const extraWidth = Math.min(maxExtra, tabRect.width * extraRatio);
     const targetWidth = tabRect.width + extraWidth;
     const unclampedLeft = tabRect.left - navRect.left - extraWidth / 2;
     const targetLeft = Math.max(navPadding, Math.min(unclampedLeft, navRect.width - navPadding - targetWidth));
-    const currentLeft = currentRect.left - navRect.left;
-    const currentWidth = currentRect.width;
 
+    const currentLeft = isVisible ? currentRect.left - navRect.left : targetLeft;
+    const currentWidth = isVisible ? currentRect.width : targetWidth;
+
+    if (!animate || !isVisible || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      slider.style.transition = "none";
+      slider.style.opacity = "1";
+      slider.style.left = `${targetLeft}px`;
+      slider.style.width = `${targetWidth}px`;
+      slider.style.transform = "none";
+      return;
+    }
+
+    const deltaX = currentLeft - targetLeft;
+    const scaleX = currentWidth / targetWidth;
+
+    if (Math.abs(deltaX) < 0.5 && Math.abs(scaleX - 1) < 0.01) {
+      return;
+    }
+
+    // Set FLIP start state without transition
+    slider.style.transition = "none";
     slider.style.opacity = "1";
     slider.style.left = `${targetLeft}px`;
     slider.style.width = `${targetWidth}px`;
+    slider.style.transformOrigin = deltaX >= 0 ? "left center" : "right center";
+    slider.style.transform = `translate3d(${deltaX}px, 0, 0) scale3d(${scaleX}, 1, 1)`;
 
-    if (!animate || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Force browser style reflow to commit FLIP start frame
+    void slider.offsetHeight;
 
-    const delta = currentLeft - targetLeft;
-    const direction = Math.sign(targetLeft - currentLeft) || 1;
-    const animation = slider.animate([
-      { transform: `translateX(${delta}px) scaleX(${currentWidth / targetWidth})`, offset: 0 },
-      { transform: `translateX(${direction * overshoot}px) scaleX(1.08)`, offset: 0.7 },
-      { transform: `translateX(${direction * overshoot * -0.36}px) scaleX(0.98)`, offset: 0.86 },
-      { transform: "translateX(0) scaleX(1)", offset: 1 }
-    ], {
-      duration: 620,
-      easing: "cubic-bezier(0.22, 1, 0.36, 1)"
-    });
-    pillSliderAnimations.set(slider, animation);
+    // GPU-accelerated liquid spring transition
+    slider.style.transition = "transform 380ms cubic-bezier(0.22, 1.25, 0.36, 1), opacity 150ms ease";
+    slider.style.transform = "translate3d(0, 0, 0) scale3d(1, 1, 1)";
   });
 }
 
@@ -218,10 +232,7 @@ function positionModeSlider(animate = false) {
     container: elements.modeNav,
     slider: elements.modeSlider,
     target: elements.tabs[state.mode],
-    animate,
-    maxExtra: 0,
-    extraRatio: 0,
-    overshoot: 11
+    animate
   });
 }
 
@@ -231,10 +242,7 @@ function positionPresetSlider(animate = false) {
     container: elements.presetNav,
     slider: elements.presetSlider,
     target: activeChip,
-    animate,
-    maxExtra: 0,
-    extraRatio: 0,
-    overshoot: 7
+    animate
   });
 }
 
@@ -379,19 +387,21 @@ function resetTimer() {
 }
 
 function nextMode() {
-  if (state.mode === "work") return state.completedCount > 0 && state.completedCount % 4 === 0 ? "long" : "short";
+  if (state.mode === "work") return state.workSessionsSinceLongBreak >= 4 ? "long" : "short";
   return "work";
 }
 
 function completeTimer(skipped = false) {
   pauseTimer();
+  if (state.mode === "work") state.workSessionsSinceLongBreak += 1;
+  if (state.mode === "long") state.workSessionsSinceLongBreak = 0;
+
   if (!skipped) {
     sound.alarm();
     if (state.mode === "work") {
       state.completedCount += 1;
       state.totalFocusMinutes += state.durations.work;
       updateStatsUi();
-      savePreferences();
     }
   }
 
@@ -513,6 +523,7 @@ function bindEvents() {
   elements.resetStatsButton.addEventListener("click", () => {
     sound.click();
     state.completedCount = 0;
+    state.workSessionsSinceLongBreak = 0;
     state.totalFocusMinutes = 0;
     updateStatsUi();
     savePreferences();
@@ -593,9 +604,7 @@ async function loadVisualEnhancements() {
   const measuredGlassTargets = [
     { element: elements.timerOrbit, radius: "circle" },
     { element: elements.modeNav, radius: "pill" },
-    { element: elements.modeSlider, radius: "pill" },
     { element: elements.presetNav, radius: "pill" },
-    { element: elements.presetSlider, radius: "pill" },
     ...elements.statItems.map((element) => ({ element, radius: 16 }))
   ];
 
