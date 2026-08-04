@@ -1,224 +1,393 @@
 <!doctype html>
 <html lang="zh-Hant" data-theme="light">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#e9e6de" />
-  <meta name="color-scheme" content="light dark" />
-  <title>番茄・專注計時</title>
-  <meta name="description" content="一個安靜、好用，會記住你的專注番茄鐘。" />
-  <link rel="stylesheet" href="./static/css/app.css" />
-  <script>
-    (() => {
-      try {
-        const saved = JSON.parse(localStorage.getItem("pomo-preferences-v2") || "{}");
-        const theme = saved.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-        document.documentElement.dataset.theme = theme;
-        document.documentElement.dataset.motion = saved.gridMotion === false ? "still" : "moving";
-      } catch {
-        document.documentElement.dataset.motion = "moving";
-      }
-    })();
-  </script>
-</head>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#e9e6de" />
+    <meta name="color-scheme" content="light dark" />
+    <title>番茄鐘・專注計時</title>
+    <link rel="stylesheet" href="./static/css/app.css" />
+    <script>
+      (() => {
+        try {
+          const saved = JSON.parse(
+            localStorage.getItem('pomo-preferences-v2') || '{}',
+          );
+          const theme =
+            saved.theme ||
+            (matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light');
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.dataset.motion =
+            saved.gridMotion === false ? 'still' : 'moving';
+        } catch {
+          document.documentElement.dataset.motion = 'moving';
+        }
+      })();
+    </script>
+  </head>
 
-<body>
-  <div class="ambient-grid" aria-hidden="true">
-    <div class="grid-plane grid-plane--fine"></div>
-    <div class="grid-plane grid-plane--wide"></div>
-  </div>
-
-  <svg data-liquid-glass-defs aria-hidden="true"></svg>
-
-  <div class="page-shell">
-    <header class="site-header">
-      <a class="brand" href="./" aria-label="回到番茄鐘首頁">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <strong>POMODORO</strong>
-      </a>
-
-      <div class="header-actions" aria-label="快速設定">
-        <div class="scene icon-scene">
-          <button class="liquid-btn icon-btn" id="btn-sound" type="button" aria-label="靜音">
-            <i data-lucide="volume-2" aria-hidden="true"></i>
-          </button>
-        </div>
-        <div class="scene icon-scene">
-          <button class="liquid-btn icon-btn" id="btn-theme" type="button" aria-label="切換深淺色主題">
-            <i data-lucide="sun" aria-hidden="true"></i>
-          </button>
-        </div>
-        <div class="scene icon-scene">
-          <button class="liquid-btn icon-btn" id="btn-settings" type="button" aria-label="開啟設定">
-            <i data-lucide="sliders-horizontal" aria-hidden="true"></i>
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <main class="focus-board liquid-surface" id="mobile-content" data-mobile-view="timer">
-      <section class="timer-panel" id="timer-panel" aria-labelledby="timer-heading">
-        <h1 class="sr-only" id="timer-heading">番茄鐘</h1>
-
-        <div class="timer-stage scene timer-scene">
-          <div class="timer-orbit liquid-surface" aria-live="polite">
-            <svg class="timer-svg" viewBox="0 0 320 320" aria-hidden="true">
-              <circle class="timer-bg-ring" cx="160" cy="160" r="148" />
-              <circle class="timer-progress-ring" id="progress-ring" cx="160" cy="160" r="148" />
-            </svg>
-            <div class="timer-display">
-              <span class="timer-mode-label" id="timer-label">專注</span>
-              <time class="time-digits" id="time-digits" datetime="PT25M">25:00</time>
-            </div>
-          </div>
-        </div>
-
-        <div class="control-row" aria-label="計時控制">
-          <div class="scene secondary-scene">
-            <button class="liquid-btn secondary-btn" id="btn-reset" type="button" aria-label="重新計時">
-              <i data-lucide="rotate-ccw" aria-hidden="true"></i>
-            </button>
-          </div>
-
-          <div class="scene play-scene">
-            <button class="liquid-btn play-btn" id="btn-play-pause" type="button">
-              <i data-lucide="play" aria-hidden="true" id="play-icon"></i>
-              <span id="play-btn-text">開始專注</span>
-            </button>
-          </div>
-
-          <div class="scene secondary-scene">
-            <button class="liquid-btn secondary-btn" id="btn-skip" type="button" aria-label="跳到下一階段">
-              <i data-lucide="skip-forward" aria-hidden="true"></i>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <aside class="rhythm-panel" aria-label="本輪設定與今日紀錄">
-        <section class="mode-section" id="mode-panel">
-          <div class="section-title-row">
-            <h2>模式</h2>
-            <span class="duration-readout" id="duration-val-display">25 分</span>
-          </div>
-
-          <div class="scene mode-scene">
-            <nav class="mode-nav liquid-surface" aria-label="計時模式">
-              <span class="mode-slider liquid-control" aria-hidden="true"></span>
-              <button class="mode-btn active" id="tab-work" type="button" aria-pressed="true">
-                <i data-lucide="circle-dot" aria-hidden="true"></i>
-                <span>專注</span>
-              </button>
-              <button class="mode-btn" id="tab-short" type="button" aria-pressed="false">
-                <i data-lucide="coffee" aria-hidden="true"></i>
-                <span>短休</span>
-              </button>
-              <button class="mode-btn" id="tab-long" type="button" aria-pressed="false">
-                <i data-lucide="moon-star" aria-hidden="true"></i>
-                <span>長休</span>
-              </button>
-            </nav>
-          </div>
-
-          <div class="duration-control">
-            <label class="sr-only" for="duration-slider">本輪時間</label>
-            <input type="range" class="custom-range" id="duration-slider" min="1" max="120" value="25" step="1" />
-            <div class="range-ends" aria-hidden="true"><span>1 分</span><span>120 分</span></div>
-          </div>
-
-          <div class="preset-chips" aria-label="常用時間">
-            <span class="preset-slider liquid-control" aria-hidden="true"></span>
-            <button class="chip-btn" data-time="15" type="button">15</button>
-            <button class="chip-btn active" data-time="25" type="button">25</button>
-            <button class="chip-btn" data-time="45" type="button">45</button>
-            <button class="chip-btn" data-time="60" type="button">60</button>
-            <button class="chip-btn" data-time="90" type="button">90</button>
-            <button class="chip-btn" data-time="120" type="button">120</button>
-          </div>
-        </section>
-
-        <section class="today-section liquid-surface" id="stats-panel" aria-labelledby="today-stats-title">
-          <div class="section-title-row compact">
-            <h2 id="today-stats-title">統計</h2>
-          </div>
-
-          <div class="stats-grid">
-            <div class="stat-item liquid-surface">
-              <strong class="stat-num" id="stat-count">0</strong>
-              <span>完成回合</span>
-            </div>
-            <div class="stat-item liquid-surface">
-              <strong class="stat-num" id="stat-minutes">0</strong>
-              <span>專注分鐘</span>
-            </div>
-          </div>
-
-        </section>
-      </aside>
-    </main>
-  </div>
-
-  <nav class="mobile-bottom-nav mode-nav liquid-surface" aria-label="主要導覽">
-    <span class="mobile-nav-slider mode-slider liquid-control" aria-hidden="true"></span>
-    <button class="mobile-nav-btn mode-btn active" type="button" data-mobile-view="timer" aria-controls="timer-panel" aria-current="page">
-      <i data-lucide="house" aria-hidden="true"></i>
-      <span>首頁</span>
-    </button>
-    <button class="mobile-nav-btn mode-btn" type="button" data-mobile-view="stats" aria-controls="stats-panel">
-      <i data-lucide="chart-no-axes-column" aria-hidden="true"></i>
-      <span>統計</span>
-    </button>
-    <button class="mobile-nav-btn mode-btn" type="button" data-mobile-view="settings" aria-controls="modal-settings">
-      <i data-lucide="settings-2" aria-hidden="true"></i>
-      <span>設定</span>
-    </button>
-  </nav>
-
-  <div class="modal-overlay" id="modal-settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
-    <div class="modal-card liquid-surface">
-      <div class="modal-header">
-        <h2 id="settings-title">設定</h2>
-        <div class="scene close-scene">
-          <button class="liquid-btn icon-btn" id="btn-close-modal" type="button" aria-label="關閉設定">
-            <i data-lucide="x" aria-hidden="true"></i>
-          </button>
-        </div>
-      </div>
-
-      <div class="setting-group liquid-surface" aria-label="各模式時間">
-        <div class="setting-row">
-          <label for="modal-work-slider"><span>專注</span><output id="modal-work-val">25 分鐘</output></label>
-          <input type="range" class="custom-range" id="modal-work-slider" min="1" max="120" value="25" />
-        </div>
-        <div class="setting-row">
-          <label for="modal-short-slider"><span>短休</span><output id="modal-short-val">5 分鐘</output></label>
-          <input type="range" class="custom-range" id="modal-short-slider" min="1" max="120" value="5" />
-        </div>
-        <div class="setting-row">
-          <label for="modal-long-slider"><span>長休</span><output id="modal-long-val">15 分鐘</output></label>
-          <input type="range" class="custom-range" id="modal-long-slider" min="1" max="120" value="15" />
-        </div>
-      </div>
-
-      <div class="toggle-list liquid-surface">
-        <label class="toggle-row" for="toggle-autostart">
-          <span><strong>自動開始下一階段</strong></span>
-          <input type="checkbox" id="toggle-autostart" /><span class="toggle-ui" aria-hidden="true"></span>
-        </label>
-        <label class="toggle-row" for="toggle-ticking">
-          <span><strong>滴答倒數聲</strong></span>
-          <input type="checkbox" id="toggle-ticking" /><span class="toggle-ui" aria-hidden="true"></span>
-        </label>
-        <label class="toggle-row" for="toggle-grid-motion">
-          <span><strong>動態背景</strong></span>
-          <input type="checkbox" id="toggle-grid-motion" checked /><span class="toggle-ui" aria-hidden="true"></span>
-        </label>
-      </div>
-
-      <button class="text-btn" id="btn-reset-stats" type="button"><i data-lucide="trash-2" aria-hidden="true"></i> 清除今日紀錄</button>
+  <body>
+    <div class="ambient-grid" aria-hidden="true">
+      <div class="grid-plane grid-plane--fine"></div>
+      <div class="grid-plane grid-plane--wide"></div>
     </div>
-  </div>
 
-  <script type="module" src="./static/js/app.js"></script>
-</body>
+    <svg data-liquid-glass-defs aria-hidden="true"></svg>
+
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="./" aria-label="回到番茄鐘首頁">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <strong>POMODORO</strong>
+        </a>
+
+        <div class="header-actions" aria-label="快速設定">
+          <div class="scene icon-scene">
+            <button
+              class="liquid-btn icon-btn"
+              id="btn-sound"
+              type="button"
+              aria-label="靜音"
+            >
+              <i data-lucide="volume-2" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="scene icon-scene">
+            <button
+              class="liquid-btn icon-btn"
+              id="btn-theme"
+              type="button"
+              aria-label="切換深淺色主題"
+            >
+              <i data-lucide="sun" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="scene icon-scene">
+            <button
+              class="liquid-btn icon-btn"
+              id="btn-settings"
+              type="button"
+              aria-label="開啟設定"
+            >
+              <i data-lucide="sliders-horizontal" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main
+        class="focus-board liquid-surface"
+        id="mobile-content"
+        data-mobile-view="timer"
+      >
+        <section
+          class="timer-panel"
+          id="timer-panel"
+          aria-labelledby="timer-heading"
+        >
+          <h1 class="sr-only" id="timer-heading">番茄鐘</h1>
+
+          <div class="timer-stage scene timer-scene">
+            <div class="timer-orbit liquid-surface" aria-live="polite">
+              <svg class="timer-svg" viewBox="0 0 320 320" aria-hidden="true">
+                <circle class="timer-bg-ring" cx="160" cy="160" r="148" />
+                <circle
+                  class="timer-progress-ring"
+                  id="progress-ring"
+                  cx="160"
+                  cy="160"
+                  r="148"
+                />
+              </svg>
+              <div class="timer-display">
+                <span class="timer-mode-label" id="timer-label">專注</span>
+                <time class="time-digits" id="time-digits" datetime="PT25M"
+                  >25:00</time
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="control-row" aria-label="計時控制">
+            <div class="scene secondary-scene">
+              <button
+                class="liquid-btn secondary-btn"
+                id="btn-reset"
+                type="button"
+                aria-label="重新計時"
+              >
+                <i data-lucide="rotate-ccw" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <div class="scene play-scene">
+              <button
+                class="liquid-btn play-btn"
+                id="btn-play-pause"
+                type="button"
+              >
+                <i data-lucide="play" aria-hidden="true" id="play-icon"></i>
+                <span id="play-btn-text">開始專注</span>
+              </button>
+            </div>
+
+            <div class="scene secondary-scene">
+              <button
+                class="liquid-btn secondary-btn"
+                id="btn-skip"
+                type="button"
+                aria-label="跳到下一階段"
+              >
+                <i data-lucide="skip-forward" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="rhythm-panel" aria-label="本輪設定與今日紀錄">
+          <section class="mode-section" id="mode-panel">
+            <div class="section-title-row">
+              <h2>模式</h2>
+              <span class="duration-readout" id="duration-val-display"
+                >25 分</span
+              >
+            </div>
+
+            <div class="scene mode-scene">
+              <nav class="mode-nav liquid-surface" aria-label="計時模式">
+                <span
+                  class="mode-slider liquid-control"
+                  aria-hidden="true"
+                ></span>
+                <button
+                  class="mode-btn active"
+                  id="tab-work"
+                  type="button"
+                  aria-pressed="true"
+                >
+                  <i data-lucide="circle-dot" aria-hidden="true"></i>
+                  <span>專注</span>
+                </button>
+                <button
+                  class="mode-btn"
+                  id="tab-short"
+                  type="button"
+                  aria-pressed="false"
+                >
+                  <i data-lucide="coffee" aria-hidden="true"></i>
+                  <span>短休</span>
+                </button>
+                <button
+                  class="mode-btn"
+                  id="tab-long"
+                  type="button"
+                  aria-pressed="false"
+                >
+                  <i data-lucide="moon-star" aria-hidden="true"></i>
+                  <span>長休</span>
+                </button>
+              </nav>
+            </div>
+
+            <div class="duration-control">
+              <label class="sr-only" for="duration-slider">本輪時間</label>
+              <input
+                type="range"
+                class="custom-range"
+                id="duration-slider"
+                min="1"
+                max="120"
+                value="25"
+                step="1"
+              />
+              <div class="range-ends" aria-hidden="true">
+                <span>1 分</span><span>120 分</span>
+              </div>
+            </div>
+
+            <div class="preset-chips" aria-label="常用時間">
+              <span
+                class="preset-slider liquid-control"
+                aria-hidden="true"
+              ></span>
+              <button class="chip-btn" data-time="15" type="button">15</button>
+              <button class="chip-btn active" data-time="25" type="button">
+                25
+              </button>
+              <button class="chip-btn" data-time="45" type="button">45</button>
+              <button class="chip-btn" data-time="60" type="button">60</button>
+              <button class="chip-btn" data-time="90" type="button">90</button>
+              <button class="chip-btn" data-time="120" type="button">
+                120
+              </button>
+            </div>
+          </section>
+
+          <section
+            class="today-section liquid-surface"
+            id="stats-panel"
+            aria-labelledby="today-stats-title"
+          >
+            <div class="section-title-row compact">
+              <h2 id="today-stats-title">統計</h2>
+            </div>
+
+            <div class="stats-grid">
+              <div class="stat-item liquid-surface">
+                <strong class="stat-num" id="stat-count">0</strong>
+                <span>完成回合</span>
+              </div>
+              <div class="stat-item liquid-surface">
+                <strong class="stat-num" id="stat-minutes">0</strong>
+                <span>專注分鐘</span>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <nav
+      class="mobile-bottom-nav mode-nav liquid-surface"
+      aria-label="主要導覽"
+    >
+      <span
+        class="mobile-nav-slider mode-slider liquid-control"
+        aria-hidden="true"
+      ></span>
+      <button
+        class="mobile-nav-btn mode-btn active"
+        type="button"
+        data-mobile-view="timer"
+        aria-controls="timer-panel"
+        aria-current="page"
+      >
+        <i data-lucide="house" aria-hidden="true"></i>
+        <span>首頁</span>
+      </button>
+      <button
+        class="mobile-nav-btn mode-btn"
+        type="button"
+        data-mobile-view="stats"
+        aria-controls="stats-panel"
+      >
+        <i data-lucide="chart-no-axes-column" aria-hidden="true"></i>
+        <span>統計</span>
+      </button>
+      <button
+        class="mobile-nav-btn mode-btn"
+        type="button"
+        data-mobile-view="settings"
+        aria-controls="modal-settings"
+      >
+        <i data-lucide="settings-2" aria-hidden="true"></i>
+        <span>設定</span>
+      </button>
+    </nav>
+
+    <div
+      class="modal-overlay"
+      id="modal-settings"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-title"
+      hidden
+    >
+      <div class="modal-card liquid-surface">
+        <div class="modal-header">
+          <h2 id="settings-title">設定</h2>
+          <div class="scene close-scene">
+            <button
+              class="liquid-btn icon-btn"
+              id="btn-close-modal"
+              type="button"
+              aria-label="關閉設定"
+            >
+              <i data-lucide="x" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="setting-group liquid-surface" aria-label="各模式時間">
+          <div class="setting-row">
+            <label for="modal-work-slider"
+              ><span>專注</span
+              ><output id="modal-work-val">25 分鐘</output></label
+            >
+            <input
+              type="range"
+              class="custom-range"
+              id="modal-work-slider"
+              min="1"
+              max="120"
+              value="25"
+            />
+          </div>
+          <div class="setting-row">
+            <label for="modal-short-slider"
+              ><span>短休</span
+              ><output id="modal-short-val">5 分鐘</output></label
+            >
+            <input
+              type="range"
+              class="custom-range"
+              id="modal-short-slider"
+              min="1"
+              max="120"
+              value="5"
+            />
+          </div>
+          <div class="setting-row">
+            <label for="modal-long-slider"
+              ><span>長休</span
+              ><output id="modal-long-val">15 分鐘</output></label
+            >
+            <input
+              type="range"
+              class="custom-range"
+              id="modal-long-slider"
+              min="1"
+              max="120"
+              value="15"
+            />
+          </div>
+        </div>
+
+        <div class="toggle-list liquid-surface">
+          <label class="toggle-row" for="toggle-autostart">
+            <span><strong>自動開始下一階段</strong></span>
+            <input type="checkbox" id="toggle-autostart" /><span
+              class="toggle-ui"
+              aria-hidden="true"
+            ></span>
+          </label>
+          <label class="toggle-row" for="toggle-ticking">
+            <span><strong>滴答倒數聲</strong></span>
+            <input type="checkbox" id="toggle-ticking" /><span
+              class="toggle-ui"
+              aria-hidden="true"
+            ></span>
+          </label>
+          <label class="toggle-row" for="toggle-grid-motion">
+            <span><strong>動態背景</strong></span>
+            <input type="checkbox" id="toggle-grid-motion" checked /><span
+              class="toggle-ui"
+              aria-hidden="true"
+            ></span>
+          </label>
+        </div>
+
+        <button class="text-btn" id="btn-reset-stats" type="button">
+          <i data-lucide="trash-2" aria-hidden="true"></i> 清除今日紀錄
+        </button>
+      </div>
+    </div>
+
+    <script type="module" src="./static/js/app.js"></script>
+  </body>
 </html>
