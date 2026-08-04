@@ -221,13 +221,15 @@ function positionPillSlider({ container, slider, target, animate, maxExtra = 0, 
     const currentRect = slider.getBoundingClientRect();
     const isVisible = getComputedStyle(slider).opacity !== "0" && currentRect.width > 0;
 
+    const clientLeft = container.clientLeft || 0;
     const navPadding = Number.parseFloat(getComputedStyle(container).paddingLeft) || 0;
     const extraWidth = Math.min(maxExtra, tabRect.width * extraRatio);
     const targetWidth = tabRect.width + extraWidth;
-    const unclampedLeft = tabRect.left - navRect.left - extraWidth / 2;
-    const targetLeft = Math.max(navPadding, Math.min(unclampedLeft, navRect.width - navPadding - targetWidth));
+    const unclampedLeft = tabRect.left - navRect.left - clientLeft - extraWidth / 2;
+    const maxLeft = navRect.width - (clientLeft * 2) - navPadding - targetWidth;
+    const targetLeft = Math.max(navPadding, Math.min(unclampedLeft, maxLeft));
 
-    const currentLeft = isVisible ? currentRect.left - navRect.left : targetLeft;
+    const currentLeft = isVisible ? currentRect.left - navRect.left - clientLeft : targetLeft;
     const currentWidth = isVisible ? currentRect.width : targetWidth;
 
     if (!animate || !isVisible || matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -351,9 +353,10 @@ function positionDragLens(controller, nav, slider, clientX, baseWidth) {
 function stageSliderAtTarget(nav, slider, target) {
   const navRect = nav.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
+  const clientLeft = nav.clientLeft || 0;
 
   slider.style.transition = "none";
-  slider.style.left = `${targetRect.left - navRect.left}px`;
+  slider.style.left = `${targetRect.left - navRect.left - clientLeft}px`;
   slider.style.width = `${targetRect.width}px`;
   slider.style.transform = "none";
 }
