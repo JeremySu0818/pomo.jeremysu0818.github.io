@@ -243,6 +243,8 @@ html[data-motion="still"] .grid-plane { animation-play-state: paused; }
   box-shadow:
     inset 0 0 1.5px 1px var(--glass-inset),
     0 8px 24px var(--glass-shadow);
+  backdrop-filter: blur(12px) saturate(105%);
+  -webkit-backdrop-filter: blur(12px) saturate(105%);
   transition: transform 160ms ease, background-color 320ms ease, box-shadow 320ms ease;
 }
 
@@ -360,6 +362,7 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 50%;
   background-color: var(--glass-bg);
+  overflow: hidden;
 }
 
 .timer-orbit::before,
@@ -459,6 +462,7 @@ h2 {
   padding: 7px;
   border: 1px solid var(--line);
   border-radius: 999px;
+  overflow: hidden;
   isolation: isolate;
 }
 
@@ -587,6 +591,7 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 999px;
   background-color: var(--glass-bg);
+  overflow: hidden;
   box-shadow: inset 0 0 1px 0.5px var(--glass-inset), 0 5px 16px var(--glass-shadow);
   isolation: isolate;
 }
@@ -644,6 +649,7 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 16px;
   background-color: var(--glass-bg);
+  overflow: hidden;
 }
 
 .stat-item strong {

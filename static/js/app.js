@@ -100,6 +100,7 @@ const MODE_LABELS = {
 const mobileMedia = matchMedia("(max-width: 640px)");
 let mobileView = "timer";
 let lastMobileContentView = "timer";
+let refreshLiquidGlassLayout = () => {};
 
 function updateMobileNavigation() {
   elements.focusBoard.dataset.mobileView = lastMobileContentView;
@@ -123,6 +124,8 @@ function updateMobileNavigation() {
       positionPresetSlider(false);
     });
   }
+
+  refreshLiquidGlassLayout();
 }
 
 function savePreferences() {
@@ -450,7 +453,10 @@ function openSettings() {
   }
   updateSettingsUi();
   elements.modal.hidden = false;
-  requestAnimationFrame(() => elements.modal.classList.add("open"));
+  requestAnimationFrame(() => {
+    elements.modal.classList.add("open");
+    refreshLiquidGlassLayout();
+  });
   if (!mobileMedia.matches) elements.closeModalButton.focus({ preventScroll: true });
 }
 
@@ -462,6 +468,7 @@ function closeSettings({ restoreFocus = true } = {}) {
   elements.modal.classList.remove("open");
   window.setTimeout(() => {
     elements.modal.hidden = true;
+    refreshLiquidGlassLayout();
     if (!restoreFocus) return;
     const focusTarget = mobileMedia.matches
       ? elements.mobileNavButtons.find((button) => button.dataset.mobileView === mobileView)
@@ -504,6 +511,7 @@ function bindEvents() {
   window.addEventListener("resize", () => {
     positionModeSlider(false);
     positionPresetSlider(false);
+    refreshLiquidGlassLayout();
   }, { passive: true });
 
   elements.mobileNavButtons.forEach((button) => {
@@ -595,11 +603,15 @@ function bindEvents() {
   });
 }
 
-function mountReturnedSvgAssets(result) {
+function mountReturnedSvgAssets(result, owner) {
+  const mountedAssets = [];
+
   Object.values(result ?? {}).forEach((value) => {
     if (value instanceof SVGElement) {
       value.setAttribute("data-liquid-glass-defs", "");
+      value.dataset.liquidGlassOwner = owner;
       document.body.appendChild(value);
+      mountedAssets.push(value);
       return;
     }
     if (typeof value !== "string" || !value.includes("<svg")) return;
@@ -608,9 +620,13 @@ function mountReturnedSvgAssets(result) {
     const svg = template.content.querySelector("svg");
     if (svg) {
       svg.setAttribute("data-liquid-glass-defs", "");
+      svg.dataset.liquidGlassOwner = owner;
       document.body.appendChild(svg);
+      mountedAssets.push(svg);
     }
   });
+
+  return mountedAssets;
 }
 
 async function loadVisualEnhancements() {
@@ -631,8 +647,47 @@ async function loadVisualEnhancements() {
   const { createLiquidGlass } = glassResult.value;
   const renderScale = 1;
 
-  function applyLiquidGlassTo(button, width, height, radius) {
-    if (!button) return;
+  const glassTargets = [
+    elements.soundButton,
+    elements.themeButton,
+    elements.settingsButton,
+    elements.closeModalButton,
+    elements.playButton,
+    elements.resetButton,
+    elements.skipButton,
+    elements.timerOrbit,
+    elements.modeNav,
+    elements.presetNav,
+    ...elements.statItems,
+    elements.mobileNav
+  ].filter(Boolean);
+  const glassStates = new Map();
+  let refreshTimer = null;
+  let refreshFrame = null;
+
+  function clearLiquidGlass(element) {
+    const previous = glassStates.get(element);
+    previous?.assets.forEach((asset) => asset.remove());
+    glassStates.delete(element);
+    element.style.removeProperty("backdrop-filter");
+    element.style.removeProperty("-webkit-backdrop-filter");
+  }
+
+  function applyLiquidGlassTo(element) {
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return;
+
+    const width = Math.max(1, Math.round(rect.width));
+    const height = Math.max(1, Math.round(rect.height));
+    const radiusValue = getComputedStyle(element).borderTopLeftRadius;
+    const computedRadius = radiusValue.includes("%")
+      ? Math.min(width, height) * Number.parseFloat(radiusValue) / 100
+      : Number.parseFloat(radiusValue);
+    const radius = Math.round(Math.min(
+      Number.isFinite(computedRadius) ? computedRadius : 0,
+      width / 2,
+      height / 2
+    ));
     const glass = createLiquidGlass({
       width,
       height,
@@ -646,42 +701,43 @@ async function loadVisualEnhancements() {
       dpr: renderScale
     });
 
-    mountReturnedSvgAssets(glass);
+    const owner = element.id || [...element.classList].join("-") || "glass";
+    const assets = mountReturnedSvgAssets(glass, owner);
     if (glass?.filterRef) {
       const filter = `${glass.filterRef} saturate(100%)`;
-      button.style.backdropFilter = filter;
-      button.style.webkitBackdropFilter = filter;
+      element.style.backdropFilter = filter;
+      element.style.webkitBackdropFilter = filter;
     }
+
+    glassStates.set(element, { assets, width, height, radius });
   }
 
-  applyLiquidGlassTo(elements.soundButton, 42, 42, 21);
-  applyLiquidGlassTo(elements.themeButton, 42, 42, 21);
-  applyLiquidGlassTo(elements.settingsButton, 42, 42, 21);
-  applyLiquidGlassTo(elements.closeModalButton, 42, 42, 21);
-  applyLiquidGlassTo(elements.playButton, 178, 68, 34);
-  applyLiquidGlassTo(elements.resetButton, 62, 54, 27);
-  applyLiquidGlassTo(elements.skipButton, 62, 54, 27);
-
-  const measuredGlassTargets = [
-    { element: elements.timerOrbit, radius: "circle" },
-    { element: elements.modeNav, radius: "pill" },
-    { element: elements.presetNav, radius: "pill" },
-    ...elements.statItems.map((element) => ({ element, radius: 16 }))
-  ];
-
-  if (mobileMedia.matches) {
-    measuredGlassTargets.push({ element: elements.mobileNav, radius: "pill" });
+  function rebuildLiquidGlass() {
+    refreshFrame = null;
+    glassTargets.forEach(clearLiquidGlass);
+    glassTargets.forEach(applyLiquidGlassTo);
   }
 
-  measuredGlassTargets.forEach(({ element, radius }) => {
-    const rect = element.getBoundingClientRect();
-    const width = Math.max(1, Math.round(rect.width));
-    const height = Math.max(1, Math.round(rect.height));
-    const resolvedRadius = radius === "circle" || radius === "pill"
-      ? Math.round(Math.min(width, height) / 2)
-      : radius;
-    applyLiquidGlassTo(element, width, height, resolvedRadius);
-  });
+  refreshLiquidGlassLayout = () => {
+    // Drop dimension-bound filters immediately so an old specular map can never
+    // be stretched across the intermediate frames of an orientation change.
+    glassTargets.forEach(clearLiquidGlass);
+    window.clearTimeout(refreshTimer);
+    if (refreshFrame !== null) cancelAnimationFrame(refreshFrame);
+    refreshTimer = window.setTimeout(() => {
+      refreshTimer = null;
+      refreshFrame = requestAnimationFrame(rebuildLiquidGlass);
+    }, 140);
+  };
+
+  rebuildLiquidGlass();
+
+  if ("ResizeObserver" in window) {
+    const glassResizeObserver = new ResizeObserver(() => refreshLiquidGlassLayout());
+    glassTargets.forEach((element) => glassResizeObserver.observe(element));
+  }
+
+  window.addEventListener("orientationchange", refreshLiquidGlassLayout, { passive: true });
 
   $$(".scene").forEach((scene) => {
     const card = scene.querySelector(".refraction-card");
