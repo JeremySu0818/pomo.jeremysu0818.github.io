@@ -1,1179 +1,204 @@
 <!doctype html>
-<html lang="zh-Hant" class="light">
+<html lang="zh-Hant" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Liquid Glass Pomodoro</title>
-  <meta name="description" content="高品質流體玻璃番茄鐘" />
-
-  <style>
-    :root {
-      /* Theme variables with background image support */
-      --bg-color: #f4f5f8;
-      --surface-color: rgba(255, 255, 255, 0.45);
-      --border-color: rgba(255, 255, 255, 0.3);
-      --text-main: #0f172a;
-      --text-sub: #475569;
-      
-      /* Refraction cards for liquid glass overlay */
-      --card-primary: rgba(203, 213, 225, 0.6);
-      --card-secondary: rgba(226, 232, 240, 0.5);
-
-      --glass-bg: rgba(255, 255, 255, 0.55);
-      --glass-text: #0f172a;
-      --glass-shadow-inset: rgba(255, 255, 255, 0.95);
-      --glass-shadow-out: rgba(0, 0, 0, 0.08);
-      --ring-stroke: #0f172a;
-    }
-
-    html.dark {
-      --bg-color: #0b0e14;
-      --surface-color: rgba(0, 0, 0, 0.45);
-      --border-color: rgba(255, 255, 255, 0.12);
-      --text-main: #f8fafc;
-      --text-sub: #cbd5e1;
-
-      --card-primary: rgba(51, 65, 85, 0.6);
-      --card-secondary: rgba(30, 41, 59, 0.5);
-
-      --glass-bg: rgba(255, 255, 255, 0.15);
-      --glass-text: #ffffff;
-      --glass-shadow-inset: rgba(255, 255, 255, 0.4);
-      --glass-shadow-out: rgba(0, 0, 0, 0.25);
-      --ring-stroke: #f8fafc;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    html, body {
-      width: 100%;
-      height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      transition: background-color 0.3s ease, color 0.3s ease;
-      overflow-x: hidden;
-    }
-
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      min-height: 100dvh;
-      padding: 24px 20px;
-
-      /* User Background Image from ~/Downloads/images.jpeg */
-      background-image: url('./bg.jpeg');
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      background-attachment: fixed;
-    }
-
-    /* Backdrop dimming overlay to guarantee optical refraction and text contrast */
-    body::before {
-      content: "";
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(255, 255, 255, 0.25);
-      pointer-events: none;
-      z-index: 0;
-      transition: background 0.3s ease;
-    }
-
-    html.dark body::before {
-      background: rgba(0, 0, 0, 0.45);
-    }
-
-    /* Container */
-    .app-container {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      max-width: 800px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      height: 100%;
-      margin: 0 auto;
-      gap: 24px;
-    }
-
-    /* Header */
-    header {
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .brand {
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--text-main);
-      text-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    /* Liquid Glass strictly adhering to user snippet */
-    .scene {
-      position: relative;
-      display: grid;
-      place-items: center;
-    }
-
-    .refraction-card {
-      position: absolute;
-      border-radius: 20px;
-      background: var(--card-secondary);
-      pointer-events: none;
-      transition: transform 0.25s ease, background 0.3s ease;
-    }
-
-    .refraction-card.primary {
-      background: var(--card-primary);
-    }
-
-    .liquid-btn {
-      position: relative;
-      border: 0;
-      background: var(--glass-bg);
-      color: var(--glass-text);
-      font: 700 16px/1 -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
-      cursor: pointer;
-      overflow: hidden;
-      z-index: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      user-select: none;
-      transition: transform 0.15s ease, background 0.3s ease;
-
-      box-shadow: 
-        inset 0 0 1.5px 1px var(--glass-shadow-inset),
-        0 0 16px 2px var(--glass-shadow-out);
-    }
-
-    .liquid-btn:hover {
-      transform: scale(1.02);
-    }
-
-    .liquid-btn:active {
-      transform: scale(0.97);
-    }
-
-    svg[data-liquid-glass-defs] {
-      position: fixed;
-      width: 0;
-      height: 0;
-      pointer-events: none;
-    }
-
-    /* Mode Navigation Tabs */
-    .mode-nav {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      background: var(--surface-color);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      padding: 4px;
-      border-radius: 30px;
-      border: 1px solid var(--border-color);
-    }
-
-    .tab-btn {
-      padding: 8px 18px;
-      border-radius: 24px;
-      border: none;
-      background: transparent;
-      color: var(--text-sub);
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .tab-btn.active {
-      background: var(--glass-bg);
-      color: var(--text-main);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-
-    /* Main Timer Display */
-    .timer-section {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 28px;
-      width: 100%;
-      margin: auto 0;
-    }
-
-    .timer-circle-wrap {
-      position: relative;
-      width: 260px;
-      height: 260px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .timer-svg {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      transform: rotate(-90deg);
-    }
-
-    .timer-bg-ring {
-      fill: none;
-      stroke: var(--surface-color);
-      stroke-width: 4;
-    }
-
-    .timer-progress-ring {
-      fill: none;
-      stroke: var(--ring-stroke);
-      stroke-width: 4;
-      stroke-linecap: round;
-      stroke-dasharray: 753.98; /* 2 * PI * 120 */
-      stroke-dashoffset: 0;
-      transition: stroke-dashoffset 0.3s linear;
-    }
-
-    .timer-display {
-      position: relative;
-      z-index: 2;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-    }
-
-    .time-digits {
-      font-size: 4.5rem;
-      font-weight: 700;
-      letter-spacing: -2px;
-      line-height: 1;
-      font-variant-numeric: tabular-nums;
-      text-shadow: 0 2px 10px rgba(0,0,0,0.15);
-    }
-
-    .timer-label {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--text-sub);
-      margin-top: 10px;
-    }
-
-    /* Time Range Control (1 - 120 min) */
-    .duration-control {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      width: 100%;
-      max-width: 320px;
-    }
-
-    .slider-info {
-      display: flex;
-      justify-content: space-between;
-      width: 100%;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-sub);
-      letter-spacing: 0.5px;
-    }
-
-    .slider-val {
-      color: var(--text-main);
-      font-weight: 700;
-    }
-
-    .custom-range {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 4px;
-      border-radius: 2px;
-      background: var(--surface-color);
-      outline: none;
-      cursor: pointer;
-    }
-
-    .custom-range::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: var(--text-main);
-      cursor: pointer;
-      transition: transform 0.15s ease;
-    }
-
-    .custom-range::-webkit-slider-thumb:hover {
-      transform: scale(1.25);
-    }
-
-    .preset-chips {
-      display: flex;
-      gap: 6px;
-    }
-
-    .chip-btn {
-      padding: 4px 10px;
-      border-radius: 12px;
-      border: 1px solid var(--border-color);
-      background: var(--surface-color);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      color: var(--text-sub);
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .chip-btn:hover, .chip-btn.active {
-      background: var(--text-main);
-      color: var(--bg-color);
-      border-color: var(--text-main);
-    }
-
-    /* Controls Group */
-    .controls-group {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-    }
-
-    /* Primary Start Button Scene */
-    .play-scene {
-      width: 170px;
-      height: 80px;
-    }
-
-    .play-card-bg {
-      width: 110px;
-      height: 64px;
-      border-radius: 22px;
-      transform: translate(24px, 14px);
-    }
-
-    .play-btn {
-      width: 160px;
-      height: 72px;
-      border-radius: 36px;
-      font-size: 18px;
-      font-weight: 700;
-    }
-
-    /* Secondary Button Scene */
-    .sec-scene {
-      width: 90px;
-      height: 64px;
-    }
-
-    .sec-card-bg {
-      width: 50px;
-      height: 48px;
-      border-radius: 16px;
-      transform: translate(14px, 10px);
-    }
-
-    .sec-btn {
-      width: 76px;
-      height: 52px;
-      border-radius: 26px;
-    }
-
-    /* Minimal Stats Footer */
-    .stats-footer {
-      display: flex;
-      gap: 24px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-sub);
-      letter-spacing: 0.5px;
-      background: var(--surface-color);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      padding: 8px 16px;
-      border-radius: 16px;
-      border: 1px solid var(--border-color);
-    }
-
-    .stat-num {
-      color: var(--text-main);
-      font-weight: 700;
-    }
-
-    /* Settings Sheet Modal */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.4);
-      backdrop-filter: blur(8px);
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s ease;
-    }
-
-    .modal-overlay.open {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .modal-card {
-      width: 90%;
-      max-width: 380px;
-      background: var(--bg-color);
-      border: 1px solid var(--border-color);
-      border-radius: 24px;
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.25);
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 16px;
-      font-weight: 700;
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      color: var(--text-sub);
-      font-size: 20px;
-      cursor: pointer;
-    }
-
-    .setting-row {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .setting-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-sub);
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .icon-svg {
-      width: 18px;
-      height: 18px;
-      stroke: currentColor;
-      fill: none;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    /* Mobile Landscape Responsive (手機橫屏適應) */
-    @media (max-height: 520px) and (orientation: landscape), (min-width: 640px) and (orientation: landscape) and (max-height: 600px) {
-      body {
-        padding: 12px 20px;
-        justify-content: center;
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#e9e6de" />
+  <meta name="color-scheme" content="light dark" />
+  <title>番茄・專注計時</title>
+  <meta name="description" content="一個安靜、好用，會記住你的專注番茄鐘。" />
+  <link rel="stylesheet" href="./static/css/app.css" />
+  <script>
+    (() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem("pomo-preferences-v2") || "{}");
+        const theme = saved.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.dataset.motion = saved.gridMotion === false ? "still" : "moving";
+      } catch {
+        document.documentElement.dataset.motion = "moving";
       }
-
-      .app-container {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        grid-template-rows: auto 1fr;
-        column-gap: 36px;
-        row-gap: 8px;
-        align-items: center;
-        max-width: 800px;
-      }
-
-      header {
-        grid-column: 1 / -1;
-      }
-
-      .timer-section {
-        grid-column: 1;
-        gap: 12px;
-      }
-
-      .timer-circle-wrap {
-        width: 190px;
-        height: 190px;
-      }
-
-      .time-digits {
-        font-size: 3.2rem;
-      }
-
-      .landscape-col2 {
-        grid-column: 2;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 16px;
-      }
-
-      .stats-footer {
-        grid-column: 1 / -1;
-        justify-content: center;
-      }
-    }
-  </style>
+    })();
+  </script>
 </head>
 
 <body>
-  <div class="app-container">
-    <!-- Header -->
-    <header>
-      <div class="brand">POMODORO</div>
+  <div class="ambient-grid" aria-hidden="true">
+    <div class="grid-plane grid-plane--fine"></div>
+    <div class="grid-plane grid-plane--wide"></div>
+  </div>
 
-      <div class="header-actions">
-        <!-- Sound Button Scene -->
-        <div class="scene" style="width: 44px; height: 44px;">
-          <div class="refraction-card" id="sound-card" style="width: 28px; height: 28px; transform: translate(5px, 5px);"></div>
-          <button class="liquid-btn" id="btn-sound" type="button" aria-label="切換靜音" style="width: 40px; height: 40px; border-radius: 20px; padding: 0;">
-            <svg class="icon-svg" id="sound-icon" viewBox="0 0 24 24">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-            </svg>
+  <svg data-liquid-glass-defs aria-hidden="true"></svg>
+
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="回到番茄鐘首頁">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <strong>POMODORO</strong>
+      </a>
+
+      <div class="header-actions" aria-label="快速設定">
+        <div class="scene icon-scene">
+          <button class="liquid-btn icon-btn" id="btn-sound" type="button" aria-label="靜音">
+            <i data-lucide="volume-2" aria-hidden="true"></i>
           </button>
         </div>
-
-        <!-- Theme Switch Scene -->
-        <div class="scene" style="width: 44px; height: 44px;">
-          <div class="refraction-card primary" id="theme-card" style="width: 28px; height: 28px; transform: translate(5px, 5px);"></div>
-          <button class="liquid-btn" id="btn-theme" type="button" aria-label="切換深淺色主題" style="width: 40px; height: 40px; border-radius: 20px; padding: 0;">
-            <svg class="icon-svg" id="theme-icon" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="5"></circle>
-              <line x1="12" y1="1" x2="12" y2="3"></line>
-              <line x1="12" y1="21" x2="12" y2="23"></line>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-              <line x1="1" y1="12" x2="3" y2="12"></line>
-              <line x1="21" y1="12" x2="23" y2="12"></line>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-            </svg>
+        <div class="scene icon-scene">
+          <button class="liquid-btn icon-btn" id="btn-theme" type="button" aria-label="切換深淺色主題">
+            <i data-lucide="sun" aria-hidden="true"></i>
           </button>
         </div>
-
-        <!-- Settings Button Scene -->
-        <div class="scene" style="width: 44px; height: 44px;">
-          <div class="refraction-card" id="settings-card" style="width: 28px; height: 28px; transform: translate(5px, 5px);"></div>
-          <button class="liquid-btn" id="btn-settings" type="button" aria-label="設定" style="width: 40px; height: 40px; border-radius: 20px; padding: 0;">
-            <svg class="icon-svg" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
+        <div class="scene icon-scene">
+          <button class="liquid-btn icon-btn" id="btn-settings" type="button" aria-label="開啟設定">
+            <i data-lucide="sliders-horizontal" aria-hidden="true"></i>
           </button>
         </div>
       </div>
     </header>
 
-    <!-- Timer Section -->
-    <main class="timer-section">
-      <!-- Minimal Ring & Display -->
-      <div class="timer-circle-wrap">
-        <svg class="timer-svg" viewBox="0 0 260 260">
-          <circle class="timer-bg-ring" cx="130" cy="130" r="120" />
-          <circle class="timer-progress-ring" id="progress-ring" cx="130" cy="130" r="120" />
-        </svg>
+    <main class="focus-board liquid-surface">
+      <section class="timer-panel" aria-labelledby="timer-heading">
+        <h1 class="sr-only" id="timer-heading">番茄鐘</h1>
 
-        <div class="timer-display">
-          <div class="time-digits" id="time-digits">25:00</div>
-          <div class="timer-label" id="timer-label">FOCUS</div>
-        </div>
-      </div>
-
-      <div class="landscape-col2">
-        <!-- Mode Navigation Tabs -->
-        <nav class="mode-nav" aria-label="模式選擇">
-          <button class="tab-btn active" id="tab-work" type="button">專注</button>
-          <button class="tab-btn" id="tab-short" type="button">短休</button>
-          <button class="tab-btn" id="tab-long" type="button">長休</button>
-        </nav>
-
-        <!-- Time Range Slider (1 to 120 mins) -->
-        <div class="duration-control">
-          <div class="slider-info">
-            <span>自訂時間 (最高 120 分鐘)</span>
-            <span class="slider-val" id="duration-val-display">25 min</span>
-          </div>
-          <input type="range" class="custom-range" id="duration-slider" min="1" max="120" value="25" step="1">
-          <div class="preset-chips">
-            <button class="chip-btn" data-time="15">15m</button>
-            <button class="chip-btn active" data-time="25">25m</button>
-            <button class="chip-btn" data-time="45">45m</button>
-            <button class="chip-btn" data-time="60">60m</button>
-            <button class="chip-btn" data-time="90">90m</button>
-            <button class="chip-btn" data-time="120">120m</button>
+        <div class="timer-stage scene timer-scene">
+          <div class="refraction-card primary timer-refraction"></div>
+          <div class="timer-orbit liquid-surface" aria-live="polite">
+            <svg class="timer-svg" viewBox="0 0 320 320" aria-hidden="true">
+              <circle class="timer-bg-ring" cx="160" cy="160" r="148" />
+              <circle class="timer-progress-ring" id="progress-ring" cx="160" cy="160" r="148" />
+            </svg>
+            <div class="timer-display">
+              <span class="timer-mode-label" id="timer-label">專注</span>
+              <time class="time-digits" id="time-digits" datetime="PT25M">25:00</time>
+            </div>
           </div>
         </div>
 
-        <!-- Action Controls -->
-        <div class="controls-group">
-          <!-- Reset Scene -->
-          <div class="scene sec-scene">
-            <div class="refraction-card sec-card-bg"></div>
-            <button class="liquid-btn sec-btn" id="btn-reset" type="button" aria-label="重設">
-              <svg class="icon-svg" viewBox="0 0 24 24">
-                <polyline points="1 4 1 10 7 10"></polyline>
-                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-              </svg>
+        <div class="control-row" aria-label="計時控制">
+          <div class="scene secondary-scene">
+            <button class="liquid-btn secondary-btn" id="btn-reset" type="button" aria-label="重新計時">
+              <i data-lucide="rotate-ccw" aria-hidden="true"></i>
             </button>
           </div>
 
-          <!-- Play/Pause Main Scene with Primary Refraction Card -->
           <div class="scene play-scene">
-            <div class="refraction-card primary play-card-bg" id="play-card"></div>
             <button class="liquid-btn play-btn" id="btn-play-pause" type="button">
-              <svg class="icon-svg" id="play-icon" style="width: 22px; height: 22px;" viewBox="0 0 24 24">
-                <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon>
-              </svg>
-              <span id="play-btn-text">開始</span>
+              <i data-lucide="play" aria-hidden="true" id="play-icon"></i>
+              <span id="play-btn-text">開始專注</span>
             </button>
           </div>
 
-          <!-- Skip Scene -->
-          <div class="scene sec-scene">
-            <div class="refraction-card sec-card-bg"></div>
-            <button class="liquid-btn sec-btn" id="btn-skip" type="button" aria-label="跳過">
-              <svg class="icon-svg" viewBox="0 0 24 24">
-                <polygon points="5 4 15 12 5 20 5 4" fill="currentColor"></polygon>
-                <line x1="19" y1="5" x2="19" y2="19" stroke-width="2.5"></line>
-              </svg>
+          <div class="scene secondary-scene">
+            <button class="liquid-btn secondary-btn" id="btn-skip" type="button" aria-label="跳到下一階段">
+              <i data-lucide="skip-forward" aria-hidden="true"></i>
             </button>
           </div>
         </div>
-      </div>
-    </main>
+      </section>
 
-    <!-- Minimal Stats Footer -->
-    <footer class="stats-footer">
-      <div>已完成: <span class="stat-num" id="stat-count">0</span></div>
-      <div>專注時間: <span class="stat-num" id="stat-minutes">0 分鐘</span></div>
-    </footer>
+      <aside class="rhythm-panel" aria-label="本輪設定與今日紀錄">
+        <section class="mode-section">
+          <div class="section-title-row">
+            <h2>模式</h2>
+            <span class="duration-readout" id="duration-val-display">25 分</span>
+          </div>
+
+          <div class="scene mode-scene">
+            <nav class="mode-nav liquid-surface" aria-label="計時模式">
+              <button class="mode-btn liquid-control active" id="tab-work" type="button" aria-pressed="true">
+                <span>專注</span>
+              </button>
+              <button class="mode-btn liquid-control" id="tab-short" type="button" aria-pressed="false">
+                <span>短休</span>
+              </button>
+              <button class="mode-btn liquid-control" id="tab-long" type="button" aria-pressed="false">
+                <span>長休</span>
+              </button>
+            </nav>
+          </div>
+
+          <div class="duration-control">
+            <label class="sr-only" for="duration-slider">本輪時間</label>
+            <input type="range" class="custom-range" id="duration-slider" min="1" max="120" value="25" step="1" />
+            <div class="range-ends" aria-hidden="true"><span>1 分</span><span>120 分</span></div>
+          </div>
+
+          <div class="preset-chips" aria-label="常用時間">
+            <button class="chip-btn liquid-control" data-time="15" type="button">15</button>
+            <button class="chip-btn liquid-control active" data-time="25" type="button">25</button>
+            <button class="chip-btn liquid-control" data-time="45" type="button">45</button>
+            <button class="chip-btn liquid-control" data-time="60" type="button">60</button>
+            <button class="chip-btn liquid-control" data-time="90" type="button">90</button>
+            <button class="chip-btn liquid-control" data-time="120" type="button">120</button>
+          </div>
+        </section>
+
+        <section class="today-section liquid-surface" aria-labelledby="today-stats-title">
+          <div class="section-title-row compact">
+            <h2 id="today-stats-title">統計</h2>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-item liquid-surface">
+              <strong class="stat-num" id="stat-count">0</strong>
+              <span>完成回合</span>
+            </div>
+            <div class="stat-item liquid-surface">
+              <strong class="stat-num" id="stat-minutes">0</strong>
+              <span>專注分鐘</span>
+            </div>
+          </div>
+
+        </section>
+      </aside>
+    </main>
   </div>
 
-  <!-- Settings Modal -->
-  <div class="modal-overlay" id="modal-settings">
-    <div class="modal-card">
+  <div class="modal-overlay" id="modal-settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+    <div class="modal-card liquid-surface">
       <div class="modal-header">
-        <span>設定</span>
-        <button class="close-btn" id="btn-close-modal">&times;</button>
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-label">
-          <span>專注時間</span>
-          <span id="modal-work-val">25 分鐘</span>
+        <h2 id="settings-title">設定</h2>
+        <div class="scene close-scene">
+          <button class="liquid-btn icon-btn" id="btn-close-modal" type="button" aria-label="關閉設定">
+            <i data-lucide="x" aria-hidden="true"></i>
+          </button>
         </div>
-        <input type="range" class="custom-range" id="modal-work-slider" min="1" max="120" value="25">
       </div>
 
-      <div class="setting-row">
-        <div class="setting-label">
-          <span>短休息時間</span>
-          <span id="modal-short-val">5 分鐘</span>
+      <div class="setting-group liquid-surface" aria-label="各模式時間">
+        <div class="setting-row">
+          <label for="modal-work-slider"><span>專注</span><output id="modal-work-val">25 分鐘</output></label>
+          <input type="range" class="custom-range" id="modal-work-slider" min="1" max="120" value="25" />
         </div>
-        <input type="range" class="custom-range" id="modal-short-slider" min="1" max="120" value="5">
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-label">
-          <span>長休息時間</span>
-          <span id="modal-long-val">15 分鐘</span>
+        <div class="setting-row">
+          <label for="modal-short-slider"><span>短休</span><output id="modal-short-val">5 分鐘</output></label>
+          <input type="range" class="custom-range" id="modal-short-slider" min="1" max="120" value="5" />
         </div>
-        <input type="range" class="custom-range" id="modal-long-slider" min="1" max="120" value="15">
+        <div class="setting-row">
+          <label for="modal-long-slider"><span>長休</span><output id="modal-long-val">15 分鐘</output></label>
+          <input type="range" class="custom-range" id="modal-long-slider" min="1" max="120" value="15" />
+        </div>
       </div>
 
-      <div class="toggle-row">
-        <span>自動開啟下一階段</span>
-        <input type="checkbox" id="toggle-autostart" style="accent-color: var(--text-main);">
+      <div class="toggle-list liquid-surface">
+        <label class="toggle-row" for="toggle-autostart">
+          <span><strong>自動開始下一階段</strong></span>
+          <input type="checkbox" id="toggle-autostart" /><span class="toggle-ui" aria-hidden="true"></span>
+        </label>
+        <label class="toggle-row" for="toggle-ticking">
+          <span><strong>滴答倒數聲</strong></span>
+          <input type="checkbox" id="toggle-ticking" /><span class="toggle-ui" aria-hidden="true"></span>
+        </label>
+        <label class="toggle-row" for="toggle-grid-motion">
+          <span><strong>動態背景</strong></span>
+          <input type="checkbox" id="toggle-grid-motion" checked /><span class="toggle-ui" aria-hidden="true"></span>
+        </label>
       </div>
 
-      <div class="toggle-row">
-        <span>滴答倒數聲</span>
-        <input type="checkbox" id="toggle-ticking" style="accent-color: var(--text-main);">
-      </div>
-
-      <button class="chip-btn" id="btn-reset-stats" style="padding: 8px; margin-top: 8px;">重設統計數據</button>
+      <button class="text-btn" id="btn-reset-stats" type="button"><i data-lucide="trash-2" aria-hidden="true"></i> 清除今日紀錄</button>
     </div>
   </div>
 
-  <!-- Liquid Glass Integration Logic strictly with user parameter engine -->
-  <script type="module">
-    import { createLiquidGlass } from "https://esm.sh/solid-glass/engines/svg-refraction?bundle";
-
-    function mountReturnedSvgAssets(result) {
-      const values = Object.values(result ?? {});
-
-      for (const value of values) {
-        if (value instanceof SVGElement) {
-          value.setAttribute("data-liquid-glass-defs", "");
-          document.body.appendChild(value);
-        } else if (
-          typeof value === "string" &&
-          value.includes("<svg")
-        ) {
-          const template = document.createElement("template");
-          template.innerHTML = value.trim();
-
-          const svg = template.content.querySelector("svg");
-
-          if (svg) {
-            svg.setAttribute("data-liquid-glass-defs", "");
-            document.body.appendChild(svg);
-          }
-        }
-      }
-    }
-
-    const renderScale = Math.min(
-      32,
-      Math.max(8, Math.ceil((window.devicePixelRatio || 1) * 4))
-    );
-
-    function applyLiquidGlassTo(buttonEl, width, height, radius) {
-      if (!buttonEl) return;
-
-      const glass = createLiquidGlass({
-        width,
-        height,
-        radius,
-        bezelWidth: Math.max(6, Math.round(width * 0.06)),
-        glassThickness: 120,
-        blur: 1.5,
-        refractiveIndex: 1.2,
-        surface: "convexCircle",
-        specularOpacity: 0.8,
-        dpr: renderScale
-      });
-
-      mountReturnedSvgAssets(glass);
-
-      if (glass?.filterRef) {
-        const customFilter = `${glass.filterRef} saturate(100%)`;
-        buttonEl.style.backdropFilter = customFilter;
-        buttonEl.style.webkitBackdropFilter = customFilter;
-      }
-    }
-
-    // Apply Liquid Glass to controls
-    applyLiquidGlassTo(document.getElementById("btn-sound"), 40, 40, 20);
-    applyLiquidGlassTo(document.getElementById("btn-theme"), 40, 40, 20);
-    applyLiquidGlassTo(document.getElementById("btn-settings"), 40, 40, 20);
-
-    applyLiquidGlassTo(document.getElementById("btn-play-pause"), 160, 72, 36);
-    applyLiquidGlassTo(document.getElementById("btn-reset"), 76, 52, 26);
-    applyLiquidGlassTo(document.getElementById("btn-skip"), 76, 52, 26);
-
-    // Dynamic optical card parallax shift on mouse move
-    document.querySelectorAll(".scene").forEach(scene => {
-      const card = scene.querySelector(".refraction-card");
-      if (!card) return;
-
-      scene.addEventListener("mousemove", (e) => {
-        const rect = scene.getBoundingClientRect();
-        const x = e.clientX - rect.left - rect.width / 2;
-        const y = e.clientY - rect.top - rect.height / 2;
-        card.style.transform = `translate(${Math.round(x * 0.2)}px, ${Math.round(y * 0.2)}px)`;
-      });
-
-      scene.addEventListener("mouseleave", () => {
-        card.style.transform = "";
-      });
-    });
-
-    // Sound Engine
-    class SoundEngine {
-      constructor() {
-        this.ctx = null;
-        this.muted = false;
-        this.ticking = false;
-      }
-
-      init() {
-        if (!this.ctx) {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          this.ctx = new AudioContext();
-        }
-      }
-
-      playClick() {
-        if (this.muted) return;
-        this.init();
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(500, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.04);
-        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.04);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.04);
-      }
-
-      playTick() {
-        if (this.muted || !this.ticking) return;
-        this.init();
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(800, this.ctx.currentTime);
-        gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.015);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.015);
-      }
-
-      playAlarm() {
-        if (this.muted) return;
-        this.init();
-        const now = this.ctx.currentTime;
-        const notes = [440, 554.37, 659.25, 880];
-        notes.forEach((freq, i) => {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(freq, now + i * 0.1);
-          gain.gain.setValueAtTime(0, now + i * 0.1);
-          gain.gain.linearRampToValueAtTime(0.15, now + i * 0.1 + 0.04);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 1.0);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(now + i * 0.1);
-          osc.stop(now + i * 0.1 + 1.0);
-        });
-      }
-    }
-
-    const sound = new SoundEngine();
-
-    // Timer Logic State
-    const state = {
-      mode: "work", // 'work', 'short', 'long'
-      durations: {
-        work: 25,
-        short: 5,
-        long: 15
-      },
-      timeLeft: 25 * 60,
-      totalDuration: 25 * 60,
-      isRunning: false,
-      timerId: null,
-      endTime: null,
-      autoStart: false,
-      completedCount: 0,
-      totalFocusMinutes: 0
-    };
-
-    const elements = {
-      html: document.documentElement,
-      timeDigits: document.getElementById("time-digits"),
-      timerLabel: document.getElementById("timer-label"),
-      progressRing: document.getElementById("progress-ring"),
-      btnPlayPause: document.getElementById("btn-play-pause"),
-      playBtnText: document.getElementById("play-btn-text"),
-      playIcon: document.getElementById("play-icon"),
-      btnReset: document.getElementById("btn-reset"),
-      btnSkip: document.getElementById("btn-skip"),
-      durationSlider: document.getElementById("duration-slider"),
-      durationValDisplay: document.getElementById("duration-val-display"),
-      quickChips: document.querySelectorAll(".chip-btn[data-time]"),
-      tabs: {
-        work: document.getElementById("tab-work"),
-        short: document.getElementById("tab-short"),
-        long: document.getElementById("tab-long")
-      },
-      statCount: document.getElementById("stat-count"),
-      statMinutes: document.getElementById("stat-minutes"),
-      btnTheme: document.getElementById("btn-theme"),
-      themeIcon: document.getElementById("theme-icon"),
-      btnSound: document.getElementById("btn-sound"),
-      soundIcon: document.getElementById("sound-icon"),
-      btnSettings: document.getElementById("btn-settings"),
-      modalSettings: document.getElementById("modal-settings"),
-      btnCloseModal: document.getElementById("btn-close-modal"),
-      modalWorkSlider: document.getElementById("modal-work-slider"),
-      modalShortSlider: document.getElementById("modal-short-slider"),
-      modalLongSlider: document.getElementById("modal-long-slider"),
-      modalWorkVal: document.getElementById("modal-work-val"),
-      modalShortVal: document.getElementById("modal-short-val"),
-      modalLongVal: document.getElementById("modal-long-val"),
-      toggleAutostart: document.getElementById("toggle-autostart"),
-      toggleTicking: document.getElementById("toggle-ticking"),
-      btnResetStats: document.getElementById("btn-reset-stats")
-    };
-
-    const CIRCUMFERENCE = 753.98; // 2 * PI * 120
-    elements.progressRing.style.strokeDasharray = CIRCUMFERENCE;
-
-    function formatTime(seconds) {
-      const mins = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    }
-
-    function updateDisplay() {
-      const formatted = formatTime(state.timeLeft);
-      elements.timeDigits.textContent = formatted;
-
-      const progress = state.timeLeft / state.totalDuration;
-      const offset = CIRCUMFERENCE * (1 - progress);
-      elements.progressRing.style.strokeDashoffset = offset;
-
-      const modeTitles = { work: "FOCUS", short: "SHORT BREAK", long: "LONG BREAK" };
-      document.title = `${formatted} — ${modeTitles[state.mode]}`;
-    }
-
-    function setMode(newMode, customMins = null) {
-      state.mode = newMode;
-      pauseTimer();
-
-      Object.keys(elements.tabs).forEach(key => {
-        elements.tabs[key].classList.toggle("active", key === newMode);
-      });
-
-      const mins = customMins || state.durations[newMode];
-      state.durations[newMode] = mins;
-      state.totalDuration = mins * 60;
-      state.timeLeft = state.totalDuration;
-
-      const labels = { work: "FOCUS", short: "SHORT BREAK", long: "LONG BREAK" };
-      elements.timerLabel.textContent = labels[newMode];
-
-      elements.durationSlider.value = mins;
-      elements.durationValDisplay.textContent = `${mins} min`;
-      elements.quickChips.forEach(chip => {
-        chip.classList.toggle("active", parseInt(chip.dataset.time) === mins);
-      });
-
-      updateDisplay();
-    }
-
-    function startTimer() {
-      if (state.isRunning) return;
-      sound.playClick();
-      state.isRunning = true;
-      state.endTime = Date.now() + state.timeLeft * 1000;
-
-      elements.playBtnText.textContent = "暫停";
-      elements.playIcon.innerHTML = `<rect x="6" y="4" width="3.5" height="16" fill="currentColor"></rect><rect x="14.5" y="4" width="3.5" height="16" fill="currentColor"></rect>`;
-
-      state.timerId = setInterval(() => {
-        const now = Date.now();
-        state.timeLeft = Math.max(0, Math.round((state.endTime - now) / 1000));
-
-        if (state.timeLeft > 0) {
-          sound.playTick();
-        }
-
-        updateDisplay();
-
-        if (state.timeLeft <= 0) {
-          onTimerComplete();
-        }
-      }, 250);
-    }
-
-    function pauseTimer() {
-      if (!state.isRunning) return;
-      clearInterval(state.timerId);
-      state.isRunning = false;
-      elements.playBtnText.textContent = "開始";
-      elements.playIcon.innerHTML = `<polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon>`;
-    }
-
-    function toggleTimer() {
-      if (state.isRunning) {
-        sound.playClick();
-        pauseTimer();
-      } else {
-        startTimer();
-      }
-    }
-
-    function resetTimer() {
-      sound.playClick();
-      pauseTimer();
-      state.timeLeft = state.totalDuration;
-      updateDisplay();
-    }
-
-    function skipTimer() {
-      sound.playClick();
-      pauseTimer();
-      onTimerComplete(true);
-    }
-
-    function onTimerComplete(isSkipped = false) {
-      pauseTimer();
-      if (!isSkipped) {
-        sound.playAlarm();
-        if (state.mode === "work") {
-          state.completedCount++;
-          state.totalFocusMinutes += state.durations.work;
-          elements.statCount.textContent = state.completedCount;
-          elements.statMinutes.textContent = `${state.totalFocusMinutes} 分鐘`;
-        }
-      }
-
-      if (state.mode === "work") {
-        setMode(state.completedCount % 4 === 0 ? "long" : "short");
-      } else {
-        setMode("work");
-      }
-
-      if (state.autoStart && !isSkipped) {
-        setTimeout(startTimer, 1000);
-      }
-    }
-
-    // Events
-    elements.btnPlayPause.addEventListener("click", toggleTimer);
-    elements.btnReset.addEventListener("click", resetTimer);
-    elements.btnSkip.addEventListener("click", skipTimer);
-
-    elements.tabs.work.addEventListener("click", () => { sound.playClick(); setMode("work"); });
-    elements.tabs.short.addEventListener("click", () => { sound.playClick(); setMode("short"); });
-    elements.tabs.long.addEventListener("click", () => { sound.playClick(); setMode("long"); });
-
-    elements.durationSlider.addEventListener("input", (e) => {
-      const mins = parseInt(e.target.value);
-      elements.durationValDisplay.textContent = `${mins} min`;
-      setMode(state.mode, mins);
-    });
-
-    elements.quickChips.forEach(chip => {
-      chip.addEventListener("click", () => {
-        sound.playClick();
-        setMode(state.mode, parseInt(chip.dataset.time));
-      });
-    });
-
-    // Theme Switcher
-    elements.btnTheme.addEventListener("click", () => {
-      sound.playClick();
-      if (elements.html.classList.contains("light")) {
-        elements.html.classList.remove("light");
-        elements.html.classList.add("dark");
-        elements.themeIcon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>`;
-      } else {
-        elements.html.classList.remove("dark");
-        elements.html.classList.add("light");
-        elements.themeIcon.innerHTML = `<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>`;
-      }
-    });
-
-    elements.btnSound.addEventListener("click", () => {
-      sound.muted = !sound.muted;
-      sound.playClick();
-      if (sound.muted) {
-        elements.soundIcon.innerHTML = `<line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v6a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>`;
-      } else {
-        elements.soundIcon.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>`;
-      }
-    });
-
-    elements.btnSettings.addEventListener("click", () => {
-      sound.playClick();
-      elements.modalSettings.classList.add("open");
-    });
-    elements.btnCloseModal.addEventListener("click", () => {
-      sound.playClick();
-      elements.modalSettings.classList.remove("open");
-    });
-    elements.modalSettings.addEventListener("click", (e) => {
-      if (e.target === elements.modalSettings) {
-        elements.modalSettings.classList.remove("open");
-      }
-    });
-
-    elements.modalWorkSlider.addEventListener("input", (e) => {
-      const v = parseInt(e.target.value);
-      elements.modalWorkVal.textContent = `${v} 分鐘`;
-      state.durations.work = v;
-      if (state.mode === "work" && !state.isRunning) setMode("work", v);
-    });
-    elements.modalShortSlider.addEventListener("input", (e) => {
-      const v = parseInt(e.target.value);
-      elements.modalShortVal.textContent = `${v} 分鐘`;
-      state.durations.short = v;
-      if (state.mode === "short" && !state.isRunning) setMode("short", v);
-    });
-    elements.modalLongSlider.addEventListener("input", (e) => {
-      const v = parseInt(e.target.value);
-      elements.modalLongVal.textContent = `${v} 分鐘`;
-      state.durations.long = v;
-      if (state.mode === "long" && !state.isRunning) setMode("long", v);
-    });
-
-    elements.toggleAutostart.addEventListener("change", (e) => { state.autoStart = e.target.checked; });
-    elements.toggleTicking.addEventListener("change", (e) => { sound.ticking = e.target.checked; });
-
-    elements.btnResetStats.addEventListener("click", () => {
-      sound.playClick();
-      state.completedCount = 0;
-      state.totalFocusMinutes = 0;
-      elements.statCount.textContent = "0";
-      elements.statMinutes.textContent = "0 分鐘";
-    });
-
-    setMode("work");
-  </script>
+  <script type="module" src="./static/js/app.js"></script>
 </body>
 </html>
