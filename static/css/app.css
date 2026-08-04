@@ -454,19 +454,28 @@ h2 {
 }
 
 .mode-nav {
+  --drag-lens-height: 86px;
   position: relative;
   z-index: 1;
   width: min(100%, 340px);
   display: flex;
   gap: 0;
-  padding: 7px;
+  padding: 5px 7px;
   border: 0.5px solid var(--line);
   border-radius: 999px;
   overflow: hidden;
   isolation: isolate;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-touch-callout: none;
   box-shadow:
     inset 0 0 1px 0.5px var(--glass-inset),
     0 18px 48px var(--glass-shadow);
+}
+
+.mode-nav.is-mode-dragging {
+  overflow: visible;
+  cursor: grabbing;
 }
 
 .mode-scene { width: 100%; margin: 34px 0 30px; }
@@ -474,8 +483,8 @@ h2 {
 .mode-slider {
   position: absolute;
   z-index: 0;
-  top: 7px;
-  bottom: 7px;
+  top: 5px;
+  bottom: 5px;
   left: 7px;
   width: calc(33.333% - 4.667px);
   overflow: hidden;
@@ -483,10 +492,55 @@ h2 {
   border-radius: 999px;
   background-color: var(--glass-bg);
   box-shadow: inset 0 0 1px 0.5px var(--glass-inset);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   pointer-events: none;
   transform-origin: left center;
   will-change: left, width, transform;
   backface-visibility: hidden;
+}
+
+.mode-nav.is-mode-dragging .mode-slider {
+  opacity: 0 !important;
+  visibility: hidden;
+}
+
+.mode-nav.is-mode-dragging .mode-btn:active { transform: none; }
+
+.mode-nav.is-mode-dragging .mode-btn.active:not(.gesture-target) {
+  color: inherit;
+}
+
+.mode-nav.is-mode-dragging .mode-btn.gesture-target {
+  color: var(--accent-deep);
+}
+
+.mobile-bottom-nav.is-mode-dragging .mobile-nav-btn.active:not(.gesture-target) {
+  color: var(--ink-faint);
+}
+
+.drag-glass-lens {
+  position: fixed;
+  z-index: 140;
+  overflow: hidden;
+  contain: paint;
+  border: 0;
+  border-radius: 999px;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: linear-gradient(#fff, #fff);
+  background-color: color-mix(in srgb, var(--glass-bg) 28%, transparent);
+  box-shadow: 0 13px 30px color-mix(in srgb, var(--glass-shadow) 90%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(0.65px) saturate(128%) contrast(106%);
+  -webkit-backdrop-filter: blur(0.65px) saturate(128%) contrast(106%);
+  transition: opacity 100ms ease;
+  will-change: left, top;
+  backface-visibility: hidden;
+}
+
+.drag-glass-lens.is-visible {
+  opacity: 1;
 }
 
 .mode-btn {
@@ -494,8 +548,8 @@ h2 {
   z-index: 1;
   flex: 1 1 0;
   min-width: 0;
-  min-height: 62px;
-  padding: 7px 6px;
+  min-height: 54px;
+  padding: 5px 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -802,8 +856,8 @@ h2 {
   .rhythm-panel { display: block; }
   .mode-section { padding: 26px 20px 28px; }
   .mode-scene { margin: 24px 0; }
-  .mode-nav { gap: 0; }
-  .mode-btn { min-height: 60px; padding: 7px 6px; align-items: center; text-align: center; }
+  .mode-nav { --drag-lens-height: 83px; gap: 0; }
+  .mode-btn { min-height: 52px; padding: 5px 6px; align-items: center; text-align: center; }
   .mode-btn:hover { transform: none; }
   .preset-chips { gap: 4px; }
   .chip-btn { font-size: 10px; }
@@ -852,9 +906,9 @@ h2 {
   .section-title-row h2 { font-size: 16px; }
   .duration-readout { font-size: 17px; }
   .mode-scene { margin: 14px 0 12px; }
-  .mode-nav { gap: 0; padding: 5px; border-radius: 999px; }
+  .mode-nav { --drag-lens-height: 77px; gap: 0; padding: 5px; border-radius: 999px; }
   .mode-slider { top: 5px; bottom: 5px; left: 5px; }
-  .mode-btn { min-height: 56px; padding: 5px; gap: 2px; border-radius: 999px; align-items: center; text-align: center; }
+  .mode-btn { min-height: 48px; padding: 4px 5px; gap: 2px; border-radius: 999px; align-items: center; text-align: center; }
   .mode-btn svg { width: 21px; height: 21px; }
   .mode-btn span { font-size: 11px; }
   .mode-btn:hover { transform: none; }
@@ -881,6 +935,8 @@ h2 {
 
 @media (max-width: 640px) {
   body { padding-bottom: 0; }
+
+  .focus-board .mode-nav { touch-action: none; }
 
   .page-shell {
     min-height: 100dvh;
@@ -940,16 +996,18 @@ h2 {
   .focus-board[data-mobile-view="stats"] .stat-item strong { font-size: 38px; }
 
   .mobile-bottom-nav {
+    --drag-lens-height: 77px;
     position: fixed;
     z-index: 110;
     right: max(12px, env(safe-area-inset-right));
     bottom: max(10px, env(safe-area-inset-bottom));
     left: max(12px, env(safe-area-inset-left));
     width: auto;
-    height: 70px;
-    padding: 7px;
+    height: 60px;
+    padding: 5px 7px;
     display: flex;
     gap: 0;
+    touch-action: none;
     border: 0.5px solid var(--line);
     border-radius: 999px;
     background-color: var(--glass-bg);
@@ -957,8 +1015,8 @@ h2 {
   }
 
   .mobile-nav-slider {
-    top: 7px;
-    bottom: 7px;
+    top: 5px;
+    bottom: 5px;
     left: 7px;
     width: calc(33.333% - 4.667px);
   }
@@ -966,8 +1024,8 @@ h2 {
   .mobile-nav-btn {
     flex: 1 1 0;
     min-width: 0;
-    min-height: 54px;
-    padding: 6px 4px;
+    min-height: 48px;
+    padding: 4px;
     gap: 3px;
     color: var(--ink-faint);
   }

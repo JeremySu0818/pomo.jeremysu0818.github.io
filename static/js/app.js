@@ -113,13 +113,7 @@ function updateMobileNavigation() {
 
   if (mobileMedia.matches) {
     requestAnimationFrame(() => {
-      const activeButton = elements.mobileNavButtons.find((button) => button.dataset.mobileView === mobileView);
-      positionPillSlider({
-        container: elements.mobileNav,
-        slider: elements.mobileNavSlider,
-        target: activeButton,
-        animate: true
-      });
+      positionMobileNavSlider(true);
       positionModeSlider(false);
       positionPresetSlider(false);
     });
@@ -205,6 +199,13 @@ function updateDisplay() {
 let renderedMode = null;
 let renderedPresetTime = null;
 const pillSliderAnimations = new WeakMap();
+let modeGestureActive = false;
+let mobileNavGestureActive = false;
+const DRAG_LENS_SCALE_X = 1.22;
+const DRAG_LENS_SCALE_Y = 1.38;
+const DRAG_LENS_LIFT = 0;
+let initializeDragLensGlass = null;
+const activeDragLenses = new Set();
 
 function positionPillSlider({ container, slider, target, animate, maxExtra = 0, extraRatio = 0 }) {
   requestAnimationFrame(() => {
@@ -263,12 +264,313 @@ function positionPillSlider({ container, slider, target, animate, maxExtra = 0, 
 }
 
 function positionModeSlider(animate = false) {
+  if (modeGestureActive) return;
   positionPillSlider({
     container: elements.modeNav,
     slider: elements.modeSlider,
     target: elements.tabs[state.mode],
     animate
   });
+}
+
+function positionMobileNavSlider(animate = false) {
+  if (mobileNavGestureActive) return;
+  const activeButton = elements.mobileNavButtons.find((button) => button.dataset.mobileView === mobileView);
+  positionPillSlider({
+    container: elements.mobileNav,
+    slider: elements.mobileNavSlider,
+    target: activeButton,
+    animate
+  });
+}
+
+function createDragLens(nav, slider, clientX, baseWidth) {
+  const sliderRect = slider.getBoundingClientRect();
+  const configuredHeight = Number.parseFloat(getComputedStyle(nav).getPropertyValue("--drag-lens-height"));
+  const element = document.createElement("span");
+  const width = Math.round(baseWidth * DRAG_LENS_SCALE_X);
+  const height = Number.isFinite(configuredHeight)
+    ? Math.round(configuredHeight)
+    : Math.round(sliderRect.height * DRAG_LENS_SCALE_Y);
+  let disposeGlass = () => {};
+  let glassInitialized = false;
+
+  element.className = "drag-glass-lens";
+  element.setAttribute("aria-hidden", "true");
+  element.style.width = `${width}px`;
+  element.style.height = `${height}px`;
+  document.body.appendChild(element);
+
+  const controller = {
+    element,
+    width,
+    height,
+    initializeGlass() {
+      if (glassInitialized || !element.isConnected || typeof initializeDragLensGlass !== "function") return;
+      try {
+        disposeGlass = initializeDragLensGlass(element) || (() => {});
+        glassInitialized = true;
+      } catch {
+        disposeGlass = () => {};
+      }
+    },
+    destroy() {
+      activeDragLenses.delete(controller);
+      disposeGlass();
+      element.remove();
+    }
+  };
+
+  activeDragLenses.add(controller);
+  positionDragLens(controller, nav, slider, clientX, baseWidth);
+
+  requestAnimationFrame(() => {
+    if (!element.isConnected) return;
+    // The refraction map is dimension-bound, so create it only after the
+    // portal lens has its final enlarged layout size.
+    controller.initializeGlass();
+    element.classList.add("is-visible");
+  });
+
+  return controller;
+}
+
+function positionDragLens(controller, nav, slider, clientX, baseWidth) {
+  const navRect = nav.getBoundingClientRect();
+  const sliderRect = slider.getBoundingClientRect();
+  const navPadding = Number.parseFloat(getComputedStyle(nav).paddingLeft) || 0;
+  const minCenter = navRect.left + navPadding + baseWidth / 2;
+  const maxCenter = navRect.right - navPadding - baseWidth / 2;
+  const centerX = Math.max(minCenter, Math.min(clientX, maxCenter));
+  const centerY = sliderRect.top + sliderRect.height / 2 - DRAG_LENS_LIFT;
+
+  controller.element.style.left = `${Math.round(centerX - controller.width / 2)}px`;
+  controller.element.style.top = `${Math.round(centerY - controller.height / 2)}px`;
+}
+
+function stageSliderAtTarget(nav, slider, target) {
+  const navRect = nav.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+
+  slider.style.transition = "none";
+  slider.style.left = `${targetRect.left - navRect.left}px`;
+  slider.style.width = `${targetRect.width}px`;
+  slider.style.transform = "none";
+}
+
+function bindModeDragGesture() {
+  const nav = elements.modeNav;
+  const slider = elements.modeSlider;
+  if (!nav || !slider) return;
+
+  const modes = Object.entries(elements.tabs);
+  const holdDelay = 150;
+  const movementTolerance = 8;
+  let pointerId = null;
+  let holdTimer = null;
+  let startX = 0;
+  let startY = 0;
+  let latestX = 0;
+  let pointerType = "";
+  let dragMode = state.mode;
+  let dragLens = null;
+  let suppressNextClick = false;
+
+  function closestMode(clientX) {
+    return modes.reduce((closest, entry) => {
+      const rect = entry[1].getBoundingClientRect();
+      const distance = Math.abs(clientX - (rect.left + rect.width / 2));
+      return !closest || distance < closest.distance ? { entry, distance } : closest;
+    }, null).entry[0];
+  }
+
+  function updateDrag(clientX) {
+    const targetButton = elements.tabs[closestMode(clientX)];
+    const sliderWidth = targetButton.getBoundingClientRect().width;
+
+    dragMode = closestMode(clientX);
+    modes.forEach(([mode, button]) => button.classList.toggle("gesture-target", mode === dragMode));
+    stageSliderAtTarget(nav, slider, targetButton);
+    if (dragLens) positionDragLens(dragLens, nav, slider, clientX, sliderWidth);
+  }
+
+  function activateGesture() {
+    if (pointerId === null) return;
+    modeGestureActive = true;
+    suppressNextClick = true;
+    nav.classList.add("is-mode-dragging");
+    const activeWidth = elements.tabs[closestMode(latestX)].getBoundingClientRect().width;
+    dragLens = createDragLens(nav, slider, latestX, activeWidth);
+    nav.setPointerCapture?.(pointerId);
+    updateDrag(latestX);
+  }
+
+  function finishGesture({ commit }) {
+    window.clearTimeout(holdTimer);
+    holdTimer = null;
+
+    if (modeGestureActive) {
+      dragLens?.destroy();
+      dragLens = null;
+      nav.classList.remove("is-mode-dragging");
+      modes.forEach(([, button]) => button.classList.remove("gesture-target"));
+      modeGestureActive = false;
+      if (commit) {
+        sound.click();
+        setMode(dragMode);
+      } else {
+        positionModeSlider(true);
+      }
+    }
+
+    if (pointerId !== null && nav.hasPointerCapture?.(pointerId)) {
+      nav.releasePointerCapture(pointerId);
+    }
+    pointerId = null;
+    pointerType = "";
+    window.setTimeout(() => { suppressNextClick = false; }, 500);
+  }
+
+  nav.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || !event.target.closest(".mode-btn")) return;
+    pointerId = event.pointerId;
+    pointerType = event.pointerType;
+    startX = latestX = event.clientX;
+    startY = event.clientY;
+    dragMode = state.mode;
+    window.clearTimeout(holdTimer);
+    holdTimer = window.setTimeout(activateGesture, holdDelay);
+  });
+
+  nav.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== pointerId) return;
+    latestX = event.clientX;
+    if (!modeGestureActive) {
+      if (pointerType !== "touch" && Math.hypot(event.clientX - startX, event.clientY - startY) > movementTolerance) {
+        window.clearTimeout(holdTimer);
+        holdTimer = null;
+        activateGesture();
+        event.preventDefault();
+        updateDrag(event.clientX);
+      }
+      return;
+    }
+    event.preventDefault();
+    updateDrag(event.clientX);
+  });
+
+  nav.addEventListener("pointerup", (event) => {
+    if (event.pointerId === pointerId) finishGesture({ commit: modeGestureActive });
+  });
+  nav.addEventListener("pointercancel", (event) => {
+    if (event.pointerId === pointerId) finishGesture({ commit: false });
+  });
+  nav.addEventListener("contextmenu", (event) => {
+    if (modeGestureActive || suppressNextClick) event.preventDefault();
+  });
+  nav.addEventListener("click", (event) => {
+    if (!suppressNextClick) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    suppressNextClick = false;
+  }, true);
+}
+
+function bindMobileNavDragGesture() {
+  const nav = elements.mobileNav;
+  const slider = elements.mobileNavSlider;
+  const items = elements.mobileNavButtons.map((button) => [button.dataset.mobileView, button]);
+  if (!nav || !slider || !items.length) return;
+
+  const holdDelay = 150;
+  let pointerId = null;
+  let holdTimer = null;
+  let latestX = 0;
+  let dragView = mobileView;
+  let gestureActive = false;
+  let dragLens = null;
+  let suppressNextClick = false;
+
+  function closestView(clientX) {
+    return items.reduce((closest, entry) => {
+      const rect = entry[1].getBoundingClientRect();
+      const distance = Math.abs(clientX - (rect.left + rect.width / 2));
+      return !closest || distance < closest.distance ? { entry, distance } : closest;
+    }, null).entry;
+  }
+
+  function updateDrag(clientX) {
+    const [view, targetButton] = closestView(clientX);
+    const sliderWidth = targetButton.getBoundingClientRect().width;
+
+    dragView = view;
+    items.forEach(([key, button]) => button.classList.toggle("gesture-target", key === dragView));
+    stageSliderAtTarget(nav, slider, targetButton);
+    if (dragLens) positionDragLens(dragLens, nav, slider, clientX, sliderWidth);
+  }
+
+  function activateGesture() {
+    if (pointerId === null) return;
+    gestureActive = true;
+    mobileNavGestureActive = true;
+    suppressNextClick = true;
+    nav.classList.add("is-mode-dragging");
+    const activeWidth = closestView(latestX)[1].getBoundingClientRect().width;
+    dragLens = createDragLens(nav, slider, latestX, activeWidth);
+    nav.setPointerCapture?.(pointerId);
+    updateDrag(latestX);
+  }
+
+  function finishGesture(commit) {
+    window.clearTimeout(holdTimer);
+    holdTimer = null;
+
+    if (gestureActive) {
+      dragLens?.destroy();
+      dragLens = null;
+      nav.classList.remove("is-mode-dragging");
+      items.forEach(([, button]) => button.classList.remove("gesture-target"));
+      gestureActive = false;
+      mobileNavGestureActive = false;
+      if (commit) selectMobileView(dragView);
+      else positionMobileNavSlider(true);
+    }
+
+    if (pointerId !== null && nav.hasPointerCapture?.(pointerId)) nav.releasePointerCapture(pointerId);
+    pointerId = null;
+    window.setTimeout(() => { suppressNextClick = false; }, 500);
+  }
+
+  nav.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || !event.target.closest(".mobile-nav-btn")) return;
+    pointerId = event.pointerId;
+    latestX = event.clientX;
+    dragView = mobileView;
+    window.clearTimeout(holdTimer);
+    holdTimer = window.setTimeout(activateGesture, holdDelay);
+  });
+  nav.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== pointerId) return;
+    latestX = event.clientX;
+    if (!gestureActive) return;
+    event.preventDefault();
+    updateDrag(event.clientX);
+  });
+  nav.addEventListener("pointerup", (event) => {
+    if (event.pointerId === pointerId) finishGesture(gestureActive);
+  });
+  nav.addEventListener("pointercancel", (event) => {
+    if (event.pointerId === pointerId) finishGesture(false);
+  });
+  nav.addEventListener("contextmenu", (event) => {
+    if (gestureActive || suppressNextClick) event.preventDefault();
+  });
+  nav.addEventListener("click", (event) => {
+    if (!suppressNextClick) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    suppressNextClick = false;
+  }, true);
 }
 
 function positionPresetSlider(animate = false) {
@@ -491,6 +793,8 @@ function selectMobileView(view) {
 }
 
 function bindEvents() {
+  bindModeDragGesture();
+  bindMobileNavDragGesture();
   elements.playButton.addEventListener("click", () => {
     if (state.isRunning) pauseTimer({ playSound: true });
     else startTimer();
@@ -711,6 +1015,42 @@ async function loadVisualEnhancements() {
 
     glassStates.set(element, { assets, width, height, radius });
   }
+
+  initializeDragLensGlass = (element) => {
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return () => {};
+
+    const width = Math.max(1, Math.round(rect.width));
+    const height = Math.max(1, Math.round(rect.height));
+    const radius = Math.round(Math.min(width, height) / 2);
+    const glass = createLiquidGlass({
+      width,
+      height,
+      radius,
+      bezelWidth: Math.max(12, Math.round(width * 0.12)),
+      glassThickness: 180,
+      blur: 0.25,
+      refractiveIndex: 1.36,
+      surface: "convexSquircle",
+      specularOpacity: 0,
+      dpr: 1
+    });
+    const owner = `drag-lens-${Date.now()}`;
+    const assets = mountReturnedSvgAssets(glass, owner);
+
+    if (glass?.filterRef) {
+      const filter = `${glass.filterRef} saturate(128%) contrast(106%)`;
+      element.style.backdropFilter = filter;
+      element.style.webkitBackdropFilter = filter;
+    }
+
+    return () => {
+      assets.forEach((asset) => asset.remove());
+      element.style.removeProperty("backdrop-filter");
+      element.style.removeProperty("-webkit-backdrop-filter");
+    };
+  };
+  activeDragLenses.forEach((lens) => lens.initializeGlass());
 
   function rebuildLiquidGlass() {
     refreshFrame = null;
