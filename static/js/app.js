@@ -6,7 +6,7 @@ const DEFAULTS = {
   muted: false,
   ticking: false,
   autoStart: false,
-  gridMotion: !matchMedia("(prefers-reduced-motion: reduce)").matches,
+  notifications: true,
   mode: "work",
   durations: { work: 25, short: 5, long: 15 },
   completedCount: 0,
@@ -87,7 +87,7 @@ const elements = {
   },
   autoStartToggle: $("#toggle-autostart"),
   tickingToggle: $("#toggle-ticking"),
-  gridMotionToggle: $("#toggle-grid-motion"),
+  notificationToggle: $("#toggle-notification"),
   resetStatsButton: $("#btn-reset-stats")
 };
 
@@ -128,7 +128,7 @@ function savePreferences() {
     muted: state.muted,
     ticking: state.ticking,
     autoStart: state.autoStart,
-    gridMotion: state.gridMotion,
+    notifications: state.notifications,
     mode: state.mode,
     durations: state.durations,
     completedCount: state.completedCount,
@@ -617,8 +617,7 @@ function updateSettingsUi() {
   });
   elements.autoStartToggle.checked = state.autoStart;
   elements.tickingToggle.checked = state.ticking;
-  elements.gridMotionToggle.checked = state.gridMotion;
-  elements.html.dataset.motion = state.gridMotion ? "moving" : "still";
+  elements.notificationToggle.checked = state.notifications;
 }
 
 function updatePlayUi() {
@@ -629,6 +628,7 @@ function updatePlayUi() {
 class SoundEngine {
   constructor() {
     this.context = null;
+    this.alarmTimers = [];
   }
 
   init() {
@@ -637,6 +637,11 @@ class SoundEngine {
       if (AudioContextClass) this.context = new AudioContextClass();
     }
     if (this.context?.state === "suspended") this.context.resume();
+  }
+
+  stopAlarm() {
+    this.alarmTimers.forEach((id) => window.clearTimeout(id));
+    this.alarmTimers = [];
   }
 
   click() {
@@ -668,10 +673,36 @@ class SoundEngine {
 
   alarm() {
     if (state.muted) return;
-    [440, 554.37, 659.25].forEach((frequency, index) => {
-      window.setTimeout(() => {
-        this.tone({ frequency, endFrequency: frequency, duration: 0.55, volume: 0.09, type: "sine" });
-      }, index * 130);
+    this.stopAlarm();
+
+    // Rhythmic extended alarm: 4 cycles of double-beeps ("滴-滴") + finishing chime (~3.6s)
+    const pattern = [
+      // Round 1
+      { delay: 0, frequency: 880, endFrequency: 880, duration: 0.12, volume: 0.09, type: "sine" },
+      { delay: 140, frequency: 1046.5, endFrequency: 1046.5, duration: 0.22, volume: 0.1, type: "sine" },
+      // Round 2
+      { delay: 700, frequency: 880, endFrequency: 880, duration: 0.12, volume: 0.09, type: "sine" },
+      { delay: 840, frequency: 1046.5, endFrequency: 1046.5, duration: 0.22, volume: 0.1, type: "sine" },
+      // Round 3
+      { delay: 1400, frequency: 880, endFrequency: 880, duration: 0.12, volume: 0.09, type: "sine" },
+      { delay: 1540, frequency: 1046.5, endFrequency: 1046.5, duration: 0.22, volume: 0.1, type: "sine" },
+      // Round 4
+      { delay: 2100, frequency: 880, endFrequency: 880, duration: 0.12, volume: 0.09, type: "sine" },
+      { delay: 2240, frequency: 1046.5, endFrequency: 1046.5, duration: 0.22, volume: 0.1, type: "sine" },
+      // Round 5 (Ending Grand Chord Chime)
+      { delay: 2800, frequency: 523.25, endFrequency: 523.25, duration: 0.8, volume: 0.07, type: "sine" },
+      { delay: 2800, frequency: 659.25, endFrequency: 659.25, duration: 0.8, volume: 0.07, type: "sine" },
+      { delay: 2800, frequency: 783.99, endFrequency: 783.99, duration: 0.8, volume: 0.07, type: "sine" },
+      { delay: 2800, frequency: 1046.5, endFrequency: 1046.5, duration: 0.85, volume: 0.11, type: "sine" }
+    ];
+
+    pattern.forEach((note) => {
+      const timerId = window.setTimeout(() => {
+        if (!state.muted) {
+          this.tone(note);
+        }
+      }, note.delay);
+      this.alarmTimers.push(timerId);
     });
   }
 }
@@ -709,10 +740,44 @@ function syncTimerToClock() {
   if (state.timeLeft <= 0) completeTimer();
 }
 
+function requestNotificationPermission() {
+  if (state.notifications && "Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+function sendNotification(completedMode) {
+  if (!state.notifications || !("Notification" in window) || Notification.permission !== "granted") {
+    return;
+  }
+
+  const isWork = completedMode === "work";
+  const title = isWork ? "番茄鐘 - 專注完成！" : "番茄鐘 - 休息時間結束！";
+  const body = isWork
+    ? "太棒了！您已完成一個專注時段，休息一下吧！"
+    : "休息時間結束囉，準備開始下一個專注吧！";
+
+  try {
+    const notification = new Notification(title, {
+      body,
+      tag: "pomo-timer-complete",
+      renotify: true
+    });
+    notification.onclick = () => {
+      window.focus();
+      notification.close();
+    };
+  } catch (err) {
+    console.warn("Notification error:", err);
+  }
+}
+
 function startTimer() {
   if (state.isRunning) return;
   if (state.timeLeft <= 0) state.timeLeft = state.totalDuration;
   sound.click();
+  sound.stopAlarm();
+  requestNotificationPermission();
   state.isRunning = true;
   state.endTime = Date.now() + state.timeLeft * 1000;
   state.timerId = window.setInterval(syncTimerToClock, 250);
@@ -721,6 +786,7 @@ function startTimer() {
 
 function resetTimer() {
   sound.click();
+  sound.stopAlarm();
   pauseTimer();
   state.timeLeft = state.totalDuration;
   updateDisplay();
@@ -732,12 +798,14 @@ function nextMode() {
 }
 
 function completeTimer(skipped = false) {
+  const currentMode = state.mode;
   pauseTimer();
   if (state.mode === "work") state.workSessionsSinceLongBreak += 1;
   if (state.mode === "long") state.workSessionsSinceLongBreak = 0;
 
   if (!skipped) {
     sound.alarm();
+    sendNotification(currentMode);
     if (state.mode === "work") {
       state.completedCount += 1;
       state.totalFocusMinutes += state.durations.work;
@@ -890,9 +958,9 @@ function bindEvents() {
     state.ticking = event.target.checked;
     savePreferences();
   });
-  elements.gridMotionToggle.addEventListener("change", (event) => {
-    state.gridMotion = event.target.checked;
-    elements.html.dataset.motion = state.gridMotion ? "moving" : "still";
+  elements.notificationToggle.addEventListener("change", (event) => {
+    state.notifications = event.target.checked;
+    if (state.notifications) requestNotificationPermission();
     savePreferences();
   });
 
@@ -969,18 +1037,19 @@ async function loadVisualEnhancements() {
     elements.mobileNav
   ].filter(Boolean);
   const glassStates = new Map();
-  let refreshTimer = null;
   let refreshFrame = null;
 
   function clearLiquidGlass(element) {
     const previous = glassStates.get(element);
-    previous?.assets.forEach((asset) => asset.remove());
+    if (!previous) return;
+    previous.assets.forEach((asset) => asset.remove());
     glassStates.delete(element);
     element.style.removeProperty("backdrop-filter");
     element.style.removeProperty("-webkit-backdrop-filter");
   }
 
-  function applyLiquidGlassTo(element) {
+  function applyLiquidGlassTo(element, force = false) {
+    if (document.hidden) return;
     const rect = element.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return;
 
@@ -988,13 +1057,29 @@ async function loadVisualEnhancements() {
     const height = Math.max(1, Math.round(rect.height));
     const radiusValue = getComputedStyle(element).borderTopLeftRadius;
     const computedRadius = radiusValue.includes("%")
-      ? Math.min(width, height) * Number.parseFloat(radiusValue) / 100
+      ? (Math.min(width, height) * Number.parseFloat(radiusValue)) / 100
       : Number.parseFloat(radiusValue);
-    const radius = Math.round(Math.min(
-      Number.isFinite(computedRadius) ? computedRadius : 0,
-      width / 2,
-      height / 2
-    ));
+    const radius = Math.round(
+      Math.min(
+        Number.isFinite(computedRadius) ? computedRadius : 0,
+        width / 2,
+        height / 2
+      )
+    );
+    const currentDpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    const current = glassStates.get(element);
+    if (
+      !force &&
+      current &&
+      current.width === width &&
+      current.height === height &&
+      current.radius === radius &&
+      current.dpr === currentDpr
+    ) {
+      return;
+    }
+
     const glass = createLiquidGlass({
       width,
       height,
@@ -1005,18 +1090,32 @@ async function loadVisualEnhancements() {
       refractiveIndex: 1.2,
       surface: "convexCircle",
       specularOpacity: 0.8,
-      dpr: renderScale
+      dpr: currentDpr
     });
 
     const owner = element.id || [...element.classList].join("-") || "glass";
-    const assets = mountReturnedSvgAssets(glass, owner);
+    const newAssets = mountReturnedSvgAssets(glass, owner);
+
     if (glass?.filterRef) {
       const filter = `${glass.filterRef} saturate(100%)`;
       element.style.backdropFilter = filter;
       element.style.webkitBackdropFilter = filter;
     }
 
-    glassStates.set(element, { assets, width, height, radius });
+    if (current?.assets) {
+      const oldAssets = current.assets;
+      requestAnimationFrame(() => {
+        oldAssets.forEach((asset) => asset.remove());
+      });
+    }
+
+    glassStates.set(element, {
+      assets: newAssets,
+      width,
+      height,
+      radius,
+      dpr: currentDpr
+    });
   }
 
   initializeDragLensGlass = (element) => {
@@ -1055,32 +1154,27 @@ async function loadVisualEnhancements() {
   };
   activeDragLenses.forEach((lens) => lens.initializeGlass());
 
-  function rebuildLiquidGlass() {
+  function rebuildLiquidGlass(force = false) {
     refreshFrame = null;
-    glassTargets.forEach(clearLiquidGlass);
-    glassTargets.forEach(applyLiquidGlassTo);
+    if (document.hidden) return;
+    glassTargets.forEach((element) => applyLiquidGlassTo(element, force));
   }
 
-  refreshLiquidGlassLayout = () => {
-    // Drop dimension-bound filters immediately so an old specular map can never
-    // be stretched across the intermediate frames of an orientation change.
-    glassTargets.forEach(clearLiquidGlass);
-    window.clearTimeout(refreshTimer);
+  refreshLiquidGlassLayout = (force = false) => {
     if (refreshFrame !== null) cancelAnimationFrame(refreshFrame);
-    refreshTimer = window.setTimeout(() => {
-      refreshTimer = null;
-      refreshFrame = requestAnimationFrame(rebuildLiquidGlass);
-    }, 140);
+    refreshFrame = requestAnimationFrame(() => {
+      rebuildLiquidGlass(force);
+    });
   };
 
-  rebuildLiquidGlass();
+  rebuildLiquidGlass(true);
 
   if ("ResizeObserver" in window) {
     const glassResizeObserver = new ResizeObserver(() => refreshLiquidGlassLayout());
     glassTargets.forEach((element) => glassResizeObserver.observe(element));
   }
 
-  window.addEventListener("orientationchange", refreshLiquidGlassLayout, { passive: true });
+  window.addEventListener("orientationchange", () => refreshLiquidGlassLayout(true), { passive: true });
 
   $$(".scene").forEach((scene) => {
     const card = scene.querySelector(".refraction-card");

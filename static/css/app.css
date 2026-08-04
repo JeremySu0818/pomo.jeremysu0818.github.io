@@ -114,7 +114,6 @@ input:focus-visible {
   background-image: url("../images/paper-texture.jpeg");
   background-size: cover;
   background-position: center;
-  opacity: 1;
   transition: background-color 320ms ease;
 }
 
@@ -131,9 +130,8 @@ html[data-theme="dark"] .ambient-grid::after { opacity: 0.9; }
 .grid-plane {
   position: absolute;
   z-index: 1;
-  inset: -96px;
-  transform: translate3d(0, 0, 0);
-  will-change: transform;
+  inset: 0;
+  pointer-events: none;
 }
 
 .grid-plane--fine {
@@ -141,7 +139,6 @@ html[data-theme="dark"] .ambient-grid::after { opacity: 0.9; }
     linear-gradient(to right, var(--grid-fine) 1px, transparent 1px),
     linear-gradient(to bottom, var(--grid-fine) 1px, transparent 1px);
   background-size: 24px 24px;
-  animation: grid-drift 28s linear infinite;
 }
 
 .grid-plane--wide {
@@ -150,17 +147,6 @@ html[data-theme="dark"] .ambient-grid::after { opacity: 0.9; }
     linear-gradient(to bottom, var(--grid-wide) 1px, transparent 1px);
   background-size: 120px 120px;
   mask-image: radial-gradient(circle at 50% 45%, black, transparent 77%);
-  animation: grid-drift-wide 54s linear infinite;
-}
-
-html[data-motion="still"] .grid-plane { animation-play-state: paused; }
-
-@keyframes grid-drift {
-  to { transform: translate3d(24px, 24px, 0); }
-}
-
-@keyframes grid-drift-wide {
-  to { transform: translate3d(-120px, 120px, 0); }
 }
 
 .page-shell {

@@ -22,11 +22,7 @@
               ? 'dark'
               : 'light');
           document.documentElement.dataset.theme = theme;
-          document.documentElement.dataset.motion =
-            saved.gridMotion === false ? 'still' : 'moving';
-        } catch {
-          document.documentElement.dataset.motion = 'moving';
-        }
+        } catch {}
       })();
     </script>
   </head>
@@ -373,9 +369,9 @@
               aria-hidden="true"
             ></span>
           </label>
-          <label class="toggle-row" for="toggle-grid-motion">
-            <span><strong>動態背景</strong></span>
-            <input type="checkbox" id="toggle-grid-motion" checked /><span
+          <label class="toggle-row" for="toggle-notification">
+            <span><strong>桌面通知提醒</strong></span>
+            <input type="checkbox" id="toggle-notification" checked /><span
               class="toggle-ui"
               aria-hidden="true"
             ></span>
