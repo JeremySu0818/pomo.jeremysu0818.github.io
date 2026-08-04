@@ -351,14 +351,6 @@ h2 {
   padding: 14px 0;
 }
 
-.timer-refraction {
-  width: min(78%, 340px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--card-primary);
-  transform: translate(26px, 20px);
-}
-
 .timer-orbit {
   position: relative;
   width: clamp(288px, 31vw, 372px);
@@ -462,46 +454,90 @@ h2 {
   position: relative;
   z-index: 1;
   width: 100%;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding: 8px;
+  display: flex;
+  gap: 0;
+  padding: 7px;
   border: 1px solid var(--line);
-  border-radius: 22px;
+  border-radius: 999px;
+  isolation: isolate;
 }
 
 .mode-scene { width: 100%; margin: 34px 0 30px; }
 
+.mode-slider {
+  position: absolute;
+  z-index: 0;
+  top: 7px;
+  bottom: 7px;
+  left: 7px;
+  width: calc(33.333% + 13.333px);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background-color: var(--glass-bg);
+  box-shadow:
+    inset 0 0 1.5px 1px var(--glass-inset),
+    0 10px 24px var(--glass-shadow);
+  pointer-events: none;
+  transform-origin: center;
+  will-change: left, width, transform;
+}
+
+.mode-slider::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid var(--glass-inset);
+  border-radius: inherit;
+  opacity: 0.46;
+}
+
 .mode-btn {
   position: relative;
-  min-height: 62px;
-  padding: 12px 8px;
+  z-index: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 78px;
+  padding: 10px 8px 9px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 17px;
+  gap: 5px;
+  border: 0;
+  border-radius: 999px;
   background: transparent;
   text-align: center;
   cursor: pointer;
-  transition: background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
+  transition:
+    color 240ms ease,
+    transform 240ms var(--ease-out);
 }
 
-.mode-btn:hover { background: var(--surface); transform: translateY(-1px); }
-.mode-btn.active { border-color: var(--line); background: var(--surface); }
-.mode-btn.active::after {
-  content: "";
-  position: absolute;
-  bottom: 7px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: none;
+.mode-btn:hover { transform: translateY(-2px); }
+.mode-btn:active { transform: translateY(1px) scale(0.96); }
+.mode-btn.active {
+  color: var(--accent-deep);
 }
 
-.mode-btn span { font-size: 14px; font-weight: 700; }
+.mode-btn svg {
+  width: 27px;
+  height: 27px;
+  stroke-width: 1.7;
+  transition: transform 420ms var(--ease-out), stroke-width 220ms ease;
+}
+
+.mode-btn.active svg { transform: translateY(-1px) scale(1.12); stroke-width: 2; }
+
+.mode-btn span { font-size: 13px; font-weight: 720; letter-spacing: 0.025em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-slider,
+  .mode-btn,
+  .mode-btn svg,
+  .preset-slider,
+  .chip-btn { transition-duration: 1ms; }
+}
 
 .duration-control { margin-bottom: 18px; }
 .custom-range {
@@ -550,27 +586,56 @@ h2 {
 }
 
 .range-ends { display: flex; justify-content: space-between; color: var(--ink-faint); font-size: 10px; }
-.preset-chips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
-
-.chip-btn {
-  min-width: 0;
-  padding: 7px 3px;
+.preset-chips {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
+  padding: 3px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--glass-bg);
+  background-color: var(--glass-bg);
+  box-shadow: inset 0 0 1px 0.5px var(--glass-inset), 0 5px 16px var(--glass-shadow);
+  isolation: isolate;
+}
+
+.preset-slider {
+  position: absolute;
+  z-index: 0;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(16.667% - 3.5px);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background-color: var(--glass-bg);
+  box-shadow:
+    inset 0 0 1px 0.5px var(--glass-inset),
+    0 5px 14px var(--glass-shadow);
+  pointer-events: none;
+  transform-origin: center;
+  transition: opacity 160ms ease;
+  will-change: left, width, transform;
+}
+
+.chip-btn {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  padding: 7px 3px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
   color: var(--ink-soft);
   font-size: 11px;
   font-weight: 650;
   cursor: pointer;
-  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  transition: color 160ms ease, transform 160ms ease;
 }
 
-.chip-btn:hover,
-.chip-btn.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--ink);
-}
+.chip-btn:hover { color: var(--ink); transform: translateY(-1px); }
+.chip-btn:active { transform: translateY(1px) scale(0.94); }
+.chip-btn.active { color: var(--accent-deep); }
 
 .today-section {
   padding: 30px clamp(30px, 3.4vw, 48px) 34px;
@@ -735,10 +800,9 @@ h2 {
   .rhythm-panel { display: block; }
   .mode-section { padding: 26px 20px 28px; }
   .mode-scene { margin: 24px 0; }
-  .mode-nav { grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .mode-btn { min-height: 68px; padding: 10px 8px; align-items: center; text-align: center; }
+  .mode-nav { gap: 0; }
+  .mode-btn { min-height: 76px; padding: 9px 8px; align-items: center; text-align: center; }
   .mode-btn:hover { transform: none; }
-  .mode-btn.active::after { right: auto; bottom: 7px; width: 5px; height: 5px; box-shadow: none; }
   .preset-chips { gap: 4px; }
   .chip-btn { font-size: 10px; }
   .today-section { padding: 24px 20px 26px; border-top: 1px solid var(--line); border-left: 0; }
@@ -786,10 +850,12 @@ h2 {
   .section-title-row h2 { font-size: 16px; }
   .duration-readout { font-size: 17px; }
   .mode-scene { margin: 14px 0 12px; }
-  .mode-nav { grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 5px; }
-  .mode-btn { min-height: 52px; padding: 6px; align-items: center; text-align: center; }
+  .mode-nav { gap: 0; padding: 5px; border-radius: 999px; }
+  .mode-slider { top: 5px; bottom: 5px; left: 5px; }
+  .mode-btn { min-height: 56px; padding: 5px; gap: 2px; border-radius: 999px; align-items: center; text-align: center; }
+  .mode-btn svg { width: 21px; height: 21px; }
+  .mode-btn span { font-size: 11px; }
   .mode-btn:hover { transform: none; }
-  .mode-btn.active::after { right: auto; bottom: 5px; width: 4px; height: 4px; box-shadow: none; }
   .duration-control { margin-bottom: 8px; }
   .custom-range { height: 15px; }
   .range-ends { display: none; }

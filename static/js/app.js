@@ -59,6 +59,9 @@ const elements = {
     long: $("#tab-long")
   },
   modeNav: $(".mode-nav"),
+  modeSlider: $(".mode-slider"),
+  presetNav: $(".preset-chips"),
+  presetSlider: $(".preset-slider"),
   statItems: $$(".stat-item"),
   statCount: $("#stat-count"),
   statMinutes: $("#stat-minutes"),
@@ -162,20 +165,100 @@ function updateDisplay() {
   document.title = `${formatted} · ${MODE_LABELS[state.mode]}`;
 }
 
+let renderedMode = null;
+let renderedPresetTime = null;
+const pillSliderAnimations = new WeakMap();
+
+function positionPillSlider({ container, slider, target, animate, maxExtra, extraRatio, overshoot }) {
+  requestAnimationFrame(() => {
+    if (!container || !slider) return;
+
+    const runningAnimation = pillSliderAnimations.get(slider);
+    if (runningAnimation) runningAnimation.cancel();
+
+    if (!target) {
+      slider.style.opacity = "0";
+      return;
+    }
+
+    const navRect = container.getBoundingClientRect();
+    const tabRect = target.getBoundingClientRect();
+    const currentRect = slider.getBoundingClientRect();
+    const navPadding = Number.parseFloat(getComputedStyle(container).paddingLeft) || 0;
+    const extraWidth = Math.min(maxExtra, tabRect.width * extraRatio);
+    const targetWidth = tabRect.width + extraWidth;
+    const unclampedLeft = tabRect.left - navRect.left - extraWidth / 2;
+    const targetLeft = Math.max(navPadding, Math.min(unclampedLeft, navRect.width - navPadding - targetWidth));
+    const currentLeft = currentRect.left - navRect.left;
+    const currentWidth = currentRect.width;
+
+    slider.style.opacity = "1";
+    slider.style.left = `${targetLeft}px`;
+    slider.style.width = `${targetWidth}px`;
+
+    if (!animate || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const delta = currentLeft - targetLeft;
+    const direction = Math.sign(targetLeft - currentLeft) || 1;
+    const animation = slider.animate([
+      { transform: `translateX(${delta}px) scaleX(${currentWidth / targetWidth})`, offset: 0 },
+      { transform: `translateX(${direction * overshoot}px) scaleX(1.08)`, offset: 0.7 },
+      { transform: `translateX(${direction * overshoot * -0.36}px) scaleX(0.98)`, offset: 0.86 },
+      { transform: "translateX(0) scaleX(1)", offset: 1 }
+    ], {
+      duration: 620,
+      easing: "cubic-bezier(0.22, 1, 0.36, 1)"
+    });
+    pillSliderAnimations.set(slider, animation);
+  });
+}
+
+function positionModeSlider(animate = false) {
+  positionPillSlider({
+    container: elements.modeNav,
+    slider: elements.modeSlider,
+    target: elements.tabs[state.mode],
+    animate,
+    maxExtra: 20,
+    extraRatio: 0.18,
+    overshoot: 11
+  });
+}
+
+function positionPresetSlider(animate = false) {
+  const activeChip = elements.chips.find((chip) => chip.classList.contains("active"));
+  positionPillSlider({
+    container: elements.presetNav,
+    slider: elements.presetSlider,
+    target: activeChip,
+    animate,
+    maxExtra: 8,
+    extraRatio: 0.12,
+    overshoot: 7
+  });
+}
+
 function updateModeUi() {
+  const shouldAnimateSlider = renderedMode !== null && renderedMode !== state.mode;
   Object.entries(elements.tabs).forEach(([mode, tab]) => {
     const active = mode === state.mode;
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-pressed", String(active));
   });
+  positionModeSlider(shouldAnimateSlider);
+  renderedMode = state.mode;
 
   const minutes = state.durations[state.mode];
   elements.timerLabel.textContent = MODE_LABELS[state.mode];
   elements.durationSlider.value = String(minutes);
   elements.durationReadout.textContent = `${minutes} 分`;
+  const hasPreset = elements.chips.some((chip) => Number(chip.dataset.time) === minutes);
+  const shouldAnimatePreset = renderedPresetTime !== null && renderedPresetTime !== minutes && hasPreset;
   elements.chips.forEach((chip) => {
     chip.classList.toggle("active", Number(chip.dataset.time) === minutes);
   });
+  positionPresetSlider(shouldAnimatePreset);
+  renderedPresetTime = hasPreset ? minutes : null;
 }
 
 function updateSettingsUi() {
@@ -351,6 +434,11 @@ function bindEvents() {
     });
   });
 
+  window.addEventListener("resize", () => {
+    positionModeSlider(false);
+    positionPresetSlider(false);
+  }, { passive: true });
+
   elements.durationSlider.addEventListener("input", (event) => {
     setMode(state.mode, event.target.value);
   });
@@ -469,7 +557,7 @@ async function loadVisualEnhancements() {
 
   if (glassResult.status !== "fulfilled") return;
   const { createLiquidGlass } = glassResult.value;
-  const renderScale = Math.min(8, Math.max(1, Math.ceil(window.devicePixelRatio || 1)));
+  const renderScale = 1;
 
   function applyLiquidGlassTo(button, width, height, radius) {
     if (!button) return;
@@ -504,9 +592,10 @@ async function loadVisualEnhancements() {
 
   const measuredGlassTargets = [
     { element: elements.timerOrbit, radius: "circle" },
-    { element: elements.modeNav, radius: 22 },
-    ...Object.values(elements.tabs).map((element) => ({ element, radius: 17 })),
-    ...elements.chips.map((element) => ({ element, radius: 18 })),
+    { element: elements.modeNav, radius: "pill" },
+    { element: elements.modeSlider, radius: "pill" },
+    { element: elements.presetNav, radius: "pill" },
+    { element: elements.presetSlider, radius: "pill" },
     ...elements.statItems.map((element) => ({ element, radius: 16 }))
   ];
 
@@ -514,7 +603,9 @@ async function loadVisualEnhancements() {
     const rect = element.getBoundingClientRect();
     const width = Math.max(1, Math.round(rect.width));
     const height = Math.max(1, Math.round(rect.height));
-    const resolvedRadius = radius === "circle" ? Math.round(Math.min(width, height) / 2) : radius;
+    const resolvedRadius = radius === "circle" || radius === "pill"
+      ? Math.round(Math.min(width, height) / 2)
+      : radius;
     applyLiquidGlassTo(element, width, height, resolvedRadius);
   });
 

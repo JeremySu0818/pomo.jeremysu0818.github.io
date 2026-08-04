@@ -61,7 +61,6 @@
         <h1 class="sr-only" id="timer-heading">番茄鐘</h1>
 
         <div class="timer-stage scene timer-scene">
-          <div class="refraction-card primary timer-refraction"></div>
           <div class="timer-orbit liquid-surface" aria-live="polite">
             <svg class="timer-svg" viewBox="0 0 320 320" aria-hidden="true">
               <circle class="timer-bg-ring" cx="160" cy="160" r="148" />
@@ -105,13 +104,17 @@
 
           <div class="scene mode-scene">
             <nav class="mode-nav liquid-surface" aria-label="計時模式">
-              <button class="mode-btn liquid-control active" id="tab-work" type="button" aria-pressed="true">
+              <span class="mode-slider liquid-control" aria-hidden="true"></span>
+              <button class="mode-btn active" id="tab-work" type="button" aria-pressed="true">
+                <i data-lucide="circle-dot" aria-hidden="true"></i>
                 <span>專注</span>
               </button>
-              <button class="mode-btn liquid-control" id="tab-short" type="button" aria-pressed="false">
+              <button class="mode-btn" id="tab-short" type="button" aria-pressed="false">
+                <i data-lucide="coffee" aria-hidden="true"></i>
                 <span>短休</span>
               </button>
-              <button class="mode-btn liquid-control" id="tab-long" type="button" aria-pressed="false">
+              <button class="mode-btn" id="tab-long" type="button" aria-pressed="false">
+                <i data-lucide="moon-star" aria-hidden="true"></i>
                 <span>長休</span>
               </button>
             </nav>
@@ -124,12 +127,13 @@
           </div>
 
           <div class="preset-chips" aria-label="常用時間">
-            <button class="chip-btn liquid-control" data-time="15" type="button">15</button>
-            <button class="chip-btn liquid-control active" data-time="25" type="button">25</button>
-            <button class="chip-btn liquid-control" data-time="45" type="button">45</button>
-            <button class="chip-btn liquid-control" data-time="60" type="button">60</button>
-            <button class="chip-btn liquid-control" data-time="90" type="button">90</button>
-            <button class="chip-btn liquid-control" data-time="120" type="button">120</button>
+            <span class="preset-slider liquid-control" aria-hidden="true"></span>
+            <button class="chip-btn" data-time="15" type="button">15</button>
+            <button class="chip-btn active" data-time="25" type="button">25</button>
+            <button class="chip-btn" data-time="45" type="button">45</button>
+            <button class="chip-btn" data-time="60" type="button">60</button>
+            <button class="chip-btn" data-time="90" type="button">90</button>
+            <button class="chip-btn" data-time="120" type="button">120</button>
           </div>
         </section>
 
