@@ -469,7 +469,7 @@ async function loadVisualEnhancements() {
 
   if (glassResult.status !== "fulfilled") return;
   const { createLiquidGlass } = glassResult.value;
-  const renderScale = Math.min(32, Math.max(8, Math.ceil((window.devicePixelRatio || 1) * 4)));
+  const renderScale = Math.min(8, Math.max(1, Math.ceil(window.devicePixelRatio || 1)));
 
   function applyLiquidGlassTo(button, width, height, radius) {
     if (!button) return;
