@@ -66,6 +66,10 @@ const elements = {
   statItems: $$(".stat-item"),
   statCount: $("#stat-count"),
   statMinutes: $("#stat-minutes"),
+  focusBoard: $("#mobile-content"),
+  mobileNav: $(".mobile-bottom-nav"),
+  mobileNavSlider: $(".mobile-nav-slider"),
+  mobileNavButtons: $$(".mobile-nav-btn[data-mobile-view]"),
   themeButton: $("#btn-theme"),
   soundButton: $("#btn-sound"),
   settingsButton: $("#btn-settings"),
@@ -92,6 +96,34 @@ const MODE_LABELS = {
   short: "短休",
   long: "長休"
 };
+
+const mobileMedia = matchMedia("(max-width: 640px)");
+let mobileView = "timer";
+let lastMobileContentView = "timer";
+
+function updateMobileNavigation() {
+  elements.focusBoard.dataset.mobileView = lastMobileContentView;
+  elements.mobileNavButtons.forEach((button) => {
+    const active = button.dataset.mobileView === mobileView;
+    button.classList.toggle("active", active);
+    if (active) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+
+  if (mobileMedia.matches) {
+    requestAnimationFrame(() => {
+      const activeButton = elements.mobileNavButtons.find((button) => button.dataset.mobileView === mobileView);
+      positionPillSlider({
+        container: elements.mobileNav,
+        slider: elements.mobileNavSlider,
+        target: activeButton,
+        animate: true
+      });
+      positionModeSlider(false);
+      positionPresetSlider(false);
+    });
+  }
+}
 
 function savePreferences() {
   const payload = {
@@ -412,18 +444,43 @@ function completeTimer(skipped = false) {
 
 function openSettings() {
   sound.click();
+  if (mobileMedia.matches) {
+    mobileView = "settings";
+    updateMobileNavigation();
+  }
   updateSettingsUi();
   elements.modal.hidden = false;
   requestAnimationFrame(() => elements.modal.classList.add("open"));
-  elements.closeModalButton.focus({ preventScroll: true });
+  if (!mobileMedia.matches) elements.closeModalButton.focus({ preventScroll: true });
 }
 
-function closeSettings() {
+function closeSettings({ restoreFocus = true } = {}) {
+  if (mobileView === "settings") {
+    mobileView = lastMobileContentView;
+    updateMobileNavigation();
+  }
   elements.modal.classList.remove("open");
   window.setTimeout(() => {
     elements.modal.hidden = true;
-    elements.settingsButton.focus({ preventScroll: true });
+    if (!restoreFocus) return;
+    const focusTarget = mobileMedia.matches
+      ? elements.mobileNavButtons.find((button) => button.dataset.mobileView === mobileView)
+      : elements.settingsButton;
+    focusTarget?.focus({ preventScroll: true });
   }, 220);
+}
+
+function selectMobileView(view) {
+  if (view === "settings") {
+    openSettings();
+    return;
+  }
+
+  sound.click();
+  mobileView = view;
+  lastMobileContentView = view;
+  updateMobileNavigation();
+  if (!elements.modal.hidden) closeSettings({ restoreFocus: false });
 }
 
 function bindEvents() {
@@ -448,6 +505,10 @@ function bindEvents() {
     positionModeSlider(false);
     positionPresetSlider(false);
   }, { passive: true });
+
+  elements.mobileNavButtons.forEach((button) => {
+    button.addEventListener("click", () => selectMobileView(button.dataset.mobileView));
+  });
 
   elements.durationSlider.addEventListener("input", (event) => {
     setMode(state.mode, event.target.value);
@@ -480,7 +541,7 @@ function bindEvents() {
     closeSettings();
   });
   elements.modal.addEventListener("click", (event) => {
-    if (event.target === elements.modal) closeSettings();
+    if (event.target === elements.modal && !mobileMedia.matches) closeSettings();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !elements.modal.hidden) closeSettings();
@@ -608,6 +669,10 @@ async function loadVisualEnhancements() {
     ...elements.statItems.map((element) => ({ element, radius: 16 }))
   ];
 
+  if (mobileMedia.matches) {
+    measuredGlassTargets.push({ element: elements.mobileNav, radius: "pill" });
+  }
+
   measuredGlassTargets.forEach(({ element, radius }) => {
     const rect = element.getBoundingClientRect();
     const width = Math.max(1, Math.round(rect.width));
@@ -644,6 +709,7 @@ function initialize() {
   updateSettingsUi();
   updatePlayUi();
   updateDisplay();
+  updateMobileNavigation();
   bindEvents();
   loadVisualEnhancements();
 }

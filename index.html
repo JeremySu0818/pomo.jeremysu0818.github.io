@@ -56,8 +56,8 @@
       </div>
     </header>
 
-    <main class="focus-board liquid-surface">
-      <section class="timer-panel" aria-labelledby="timer-heading">
+    <main class="focus-board liquid-surface" id="mobile-content" data-mobile-view="timer">
+      <section class="timer-panel" id="timer-panel" aria-labelledby="timer-heading">
         <h1 class="sr-only" id="timer-heading">番茄鐘</h1>
 
         <div class="timer-stage scene timer-scene">
@@ -96,7 +96,7 @@
       </section>
 
       <aside class="rhythm-panel" aria-label="本輪設定與今日紀錄">
-        <section class="mode-section">
+        <section class="mode-section" id="mode-panel">
           <div class="section-title-row">
             <h2>模式</h2>
             <span class="duration-readout" id="duration-val-display">25 分</span>
@@ -137,7 +137,7 @@
           </div>
         </section>
 
-        <section class="today-section liquid-surface" aria-labelledby="today-stats-title">
+        <section class="today-section liquid-surface" id="stats-panel" aria-labelledby="today-stats-title">
           <div class="section-title-row compact">
             <h2 id="today-stats-title">統計</h2>
           </div>
@@ -157,6 +157,22 @@
       </aside>
     </main>
   </div>
+
+  <nav class="mobile-bottom-nav mode-nav liquid-surface" aria-label="主要導覽">
+    <span class="mobile-nav-slider mode-slider liquid-control" aria-hidden="true"></span>
+    <button class="mobile-nav-btn mode-btn active" type="button" data-mobile-view="timer" aria-controls="timer-panel" aria-current="page">
+      <i data-lucide="house" aria-hidden="true"></i>
+      <span>首頁</span>
+    </button>
+    <button class="mobile-nav-btn mode-btn" type="button" data-mobile-view="stats" aria-controls="stats-panel">
+      <i data-lucide="chart-no-axes-column" aria-hidden="true"></i>
+      <span>統計</span>
+    </button>
+    <button class="mobile-nav-btn mode-btn" type="button" data-mobile-view="settings" aria-controls="modal-settings">
+      <i data-lucide="settings-2" aria-hidden="true"></i>
+      <span>設定</span>
+    </button>
+  </nav>
 
   <div class="modal-overlay" id="modal-settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
     <div class="modal-card liquid-surface">
