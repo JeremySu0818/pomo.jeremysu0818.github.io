@@ -219,8 +219,8 @@ function positionModeSlider(animate = false) {
     slider: elements.modeSlider,
     target: elements.tabs[state.mode],
     animate,
-    maxExtra: 20,
-    extraRatio: 0.18,
+    maxExtra: 0,
+    extraRatio: 0,
     overshoot: 11
   });
 }
@@ -232,8 +232,8 @@ function positionPresetSlider(animate = false) {
     slider: elements.presetSlider,
     target: activeChip,
     animate,
-    maxExtra: 8,
-    extraRatio: 0.12,
+    maxExtra: 0,
+    extraRatio: 0,
     overshoot: 7
   });
 }

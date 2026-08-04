@@ -470,7 +470,7 @@ h2 {
   top: 7px;
   bottom: 7px;
   left: 7px;
-  width: calc(33.333% + 13.333px);
+  width: calc(33.333% - 4.667px);
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
@@ -481,15 +481,6 @@ h2 {
   pointer-events: none;
   transform-origin: center;
   will-change: left, width, transform;
-}
-
-.mode-slider::after {
-  content: "";
-  position: absolute;
-  inset: 4px;
-  border: 1px solid var(--glass-inset);
-  border-radius: inherit;
-  opacity: 0.46;
 }
 
 .mode-btn {
